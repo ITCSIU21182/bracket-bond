@@ -1,0 +1,32 @@
+# Rust / Anchor
+target/
+**/*.rs.bk
+.anchor/
+test-ledger/
+programs/**/target/
+
+# Node
+node_modules/
+.pnp.*
+dist/
+.next/
+out/
+coverage/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+*.pem
+id.json
+keypair*.json
+wallet*.json
+
+# TxLINE cached feeds (large; regenerate via scripts)
+fixtures/cache/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.log

@@ -1,0 +1,26 @@
+{
+  "name": "bracket-bond",
+  "version": "0.1.0",
+  "description": "A proof-settled World Cup prediction market on Solana",
+  "license": "MIT",
+  "scripts": {
+    "replay": "tsx scripts/replay/replay.ts",
+    "txline:demo": "tsx scripts/txline/index.ts",
+    "test": "anchor test",
+    "test:unit": "ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
+  },
+  "dependencies": {
+    "@coral-xyz/anchor": "^0.31.0",
+    "@solana/web3.js": "^1.95.3"
+  },
+  "devDependencies": {
+    "@types/chai": "^4.3.16",
+    "@types/mocha": "^10.0.7",
+    "@types/node": "^20.14.0",
+    "chai": "^4.4.1",
+    "mocha": "^10.4.0",
+    "ts-mocha": "^10.0.0",
+    "tsx": "^4.16.2",
+    "typescript": "^5.5.4"
+  }
+}

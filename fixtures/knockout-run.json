@@ -1,0 +1,47 @@
+{
+  "market": { "id": 1, "title": "Race to the Final — 2026" },
+  "feeBps": 200,
+  "outcomes": [
+    { "index": 0, "team": "BRA", "teamId": 76, "initialMark": 380000 },
+    { "index": 1, "team": "ARG", "teamId": 63, "initialMark": 340000 },
+    { "index": 2, "team": "FRA", "teamId": 250, "initialMark": 300000 },
+    { "index": 3, "team": "ESP", "teamId": 203, "initialMark": 260000 }
+  ],
+  "demoBuys": [
+    { "outcome": 0, "lamports": 300000000, "note": "eventual winner" },
+    { "outcome": 3, "lamports": 200000000, "note": "eliminated early — forfeits to the pot" }
+  ],
+  "rounds": [
+    {
+      "label": "Quarter-finals",
+      "oddsTimeline": [
+        { "seq": 1, "marks": { "0": 400000, "1": 350000, "2": 300000, "3": 240000 } },
+        { "seq": 2, "marks": { "0": 470000, "1": 360000, "2": 300000, "3": 120000 } }
+      ],
+      "eliminate": 3,
+      "proofStatKey": 5001,
+      "note": "ESP knocked out on penalties; BRA marks up as its path clears."
+    },
+    {
+      "label": "Semi-finals",
+      "oddsTimeline": [
+        { "seq": 3, "marks": { "0": 540000, "1": 420000, "2": 300000 } },
+        { "seq": 4, "marks": { "0": 610000, "1": 470000, "2": 120000 } }
+      ],
+      "eliminate": 2,
+      "proofStatKey": 1,
+      "note": "FRA eliminated; two teams remain."
+    },
+    {
+      "label": "Final decider",
+      "oddsTimeline": [
+        { "seq": 5, "marks": { "0": 700000, "1": 520000 } },
+        { "seq": 6, "marks": { "0": 780000, "1": 300000 } }
+      ],
+      "eliminate": 1,
+      "proofStatKey": 1,
+      "note": "ARG eliminated — BRA is the sole survivor and wins the market."
+    }
+  ],
+  "winner": 0
+}
