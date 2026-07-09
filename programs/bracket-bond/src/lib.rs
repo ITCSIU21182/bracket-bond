@@ -9,7 +9,7 @@
 
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::{AccountMeta, Instruction};
-use anchor_lang::solana_program::program::invoke;
+use anchor_lang::solana_program::program::{get_return_data, invoke};
 use anchor_lang::system_program::{self, Transfer};
 
 pub mod errors;
@@ -206,8 +206,12 @@ pub mod bracket_bond {
             };
             let mut infos = ctx.remaining_accounts.to_vec();
             infos.push(ctx.accounts.txoracle_program.to_account_info());
-            // Fails here if the Merkle proof does not verify → settlement aborts.
+            // Errors here if the CPI itself fails. `validateStat` returns a bool
+            // via return-data, so we must also require that bool to be `true`.
             invoke(&ix, &infos)?;
+            let (ret_program, ret_data) = get_return_data().ok_or(BracketError::ProofFailed)?;
+            require_keys_eq!(ret_program, config.txoracle_program, BracketError::BadOracleProgram);
+            require!(ret_data.first() == Some(&1u8), BracketError::ProofFailed);
         }
 
         let market = &mut ctx.accounts.market;

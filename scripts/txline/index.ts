@@ -2,7 +2,7 @@
 // Run with: pnpm txline:demo   (requires a funded .env)
 
 import "dotenv/config";
-import { guestAuth } from "./auth";
+import { authenticate } from "./auth";
 import { streamMarks } from "./oddsStream";
 import { streamScores, advancedParticipant, isFinished } from "./scoresStream";
 import { fetchStatValidation } from "./statValidation";
@@ -17,14 +17,18 @@ export * from "./statValidation";
 
 async function main() {
   const baseUrl = process.env.TXLINE_BASE_URL ?? "https://txline.txodds.com";
-  const wallet = process.env.TXLINE_WALLET_PUBKEY ?? "";
   const fixtureId = process.argv[2];
   if (!fixtureId) {
     console.error("usage: pnpm txline:demo <fixtureId>");
     process.exit(1);
   }
 
-  const auth = await guestAuth({ baseUrl, wallet, serviceLevel: Number(process.env.TXLINE_SERVICE_LEVEL ?? 1) });
+  // Requires a completed on-chain SERVICE_LEVEL subscription (see docs/worldcup).
+  const auth = await authenticate(baseUrl, {
+    txSig: process.env.TXLINE_TXSIG ?? "",
+    signature: process.env.TXLINE_SIGNATURE ?? "",
+    leagues: (process.env.TXLINE_LEAGUES ?? "").split(",").filter(Boolean).map(Number),
+  });
   console.log("authed with TxLINE ✓");
 
   const ac = new AbortController();
@@ -42,8 +46,18 @@ async function main() {
     if (isFinished(s)) {
       const winner = advancedParticipant(s);
       console.log(`FINISHED — participant ${winner} advanced`);
-      const proof = await fetchStatValidation({ baseUrl, auth, fixtureId, statKey: KEY_PE_GOALS_P1 });
-      console.log("settlement proof ready:", { root: proof.root, nodes: proof.proof.length });
+      const proof = await fetchStatValidation({
+        baseUrl,
+        auth,
+        fixtureId: Number(fixtureId),
+        seq: s.seq,
+        statKey: KEY_PE_GOALS_P1,
+      });
+      console.log("settlement proof ready:", {
+        fixtureId: proof.summary.fixtureId,
+        subTreeNodes: proof.subTreeProof.length,
+        mainTreeNodes: proof.mainTreeProof.length,
+      });
       ac.abort();
       break;
     }

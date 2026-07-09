@@ -26,6 +26,8 @@ pub enum BracketError {
     NotFinalizable,
     #[msg("Txoracle program account does not match config")]
     BadOracleProgram,
+    #[msg("On-chain stat proof did not verify (validateStat returned false)")]
+    ProofFailed,
     #[msg("Outcome pool has no shares to redeem against")]
     NoShares,
 }

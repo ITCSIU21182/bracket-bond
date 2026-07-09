@@ -72,7 +72,7 @@ describe("bracket-bond", () => {
     }
 
     const totalIn = 0.6 * LAMPORTS_PER_SOL;
-    let m = await program.account.market.fetch(market);
+    let m = await (program.account as any).market.fetch(market);
     assert.equal(Number(m.totalCollateral), totalIn, "collateral tracked");
     const vaultBal = await provider.connection.getBalance(vault);
     assert.isAtLeast(vaultBal, totalIn, "vault holds >= collateral (solvent)");
@@ -95,7 +95,7 @@ describe("bracket-bond", () => {
       .accounts({ config, market, outcome: pda.outcome(market, 0), oracleAuthority: wallet })
       .rpc();
 
-    m = await program.account.market.fetch(market);
+    m = await (program.account as any).market.fetch(market);
     assert.equal(m.status, 1, "market resolved");
     assert.equal(m.winnerIndex, 0, "winner is outcome 0");
 

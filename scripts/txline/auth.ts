@@ -1,9 +1,15 @@
-// TxLINE guest authentication.
+// TxLINE authentication (verified against docs 2026-07-09).
 //
-// Flow (per docs): POST /auth/guest/start  -> JWT
-//                  POST /api/token/activate -> X-Api-Token
-// Free World-Cup tier uses service level 1 or 12 and needs no TxL purchase,
-// but all tiers require a Solana wallet to identify the caller.
+// Full flow for the free World-Cup tier (see docs/worldcup):
+//   1. POST /auth/guest/start                     -> { token }   (JWT, 30-day)
+//   2. On-chain: subscribe with SERVICE_LEVEL_ID = 1 (60s delay, any net) or
+//      12 (real-time, mainnet). This is a Solana tx you send yourself; keep its
+//      signature (txSig).
+//   3. Sign an activation message with the same wallet (base64 signature).
+//   4. POST /api/token/activate { txSig, signature, leagues } (Bearer JWT)
+//                                                  -> { apiToken }
+//
+// Every data request then sends: Authorization: Bearer <jwt>, X-Api-Token: <apiToken>.
 
 export interface TxlineAuth {
   jwt: string;
@@ -11,35 +17,43 @@ export interface TxlineAuth {
   headers: Record<string, string>;
 }
 
-export interface AuthOptions {
-  baseUrl: string;
-  /** Solana wallet public key (base58) used to identify the guest session. */
-  wallet: string;
-  /** Free World-Cup service level: 1 or 12. */
-  serviceLevel?: number;
+/** Step 1: start a guest session. No body; returns a 30-day JWT. */
+export async function startGuestSession(baseUrl: string): Promise<string> {
+  const res = await fetch(`${baseUrl.replace(/\/$/, "")}/auth/guest/start`, { method: "POST" });
+  if (!res.ok) throw new Error(`guest/start ${res.status}`);
+  const { token } = (await res.json()) as { token: string };
+  return token;
 }
 
-export async function guestAuth(opts: AuthOptions): Promise<TxlineAuth> {
-  const base = opts.baseUrl.replace(/\/$/, "");
+export interface ActivateOptions {
+  /** signature of the on-chain SERVICE_LEVEL subscription transaction */
+  txSig: string;
+  /** base64-encoded wallet signature over the activation message */
+  signature: string;
+  /** league ids selected in the subscription (World Cup for the free tier) */
+  leagues: number[];
+}
 
-  // 1) Start a guest session.
-  const startRes = await fetch(`${base}/auth/guest/start`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ wallet: opts.wallet }),
-  });
-  if (!startRes.ok) throw new Error(`guest/start ${startRes.status}`);
-  const { jwt } = (await startRes.json()) as { jwt: string };
-
-  // 2) Activate an API token for the free World-Cup tier.
-  const actRes = await fetch(`${base}/api/token/activate`, {
+/** Step 4: activate an API token against a completed subscription tx. */
+export async function activateApiToken(
+  baseUrl: string,
+  jwt: string,
+  opts: ActivateOptions,
+): Promise<string> {
+  const res = await fetch(`${baseUrl.replace(/\/$/, "")}/api/token/activate`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${jwt}` },
-    body: JSON.stringify({ serviceLevel: opts.serviceLevel ?? 1 }),
+    body: JSON.stringify(opts),
   });
-  if (!actRes.ok) throw new Error(`token/activate ${actRes.status}`);
-  const { apiToken } = (await actRes.json()) as { apiToken: string };
+  if (!res.ok) throw new Error(`token/activate ${res.status}`);
+  const { apiToken } = (await res.json()) as { apiToken: string };
+  return apiToken;
+}
 
+/** Convenience wrapper once you already have a completed subscription. */
+export async function authenticate(baseUrl: string, activate: ActivateOptions): Promise<TxlineAuth> {
+  const jwt = await startGuestSession(baseUrl);
+  const apiToken = await activateApiToken(baseUrl, jwt, activate);
   return {
     jwt,
     apiToken,

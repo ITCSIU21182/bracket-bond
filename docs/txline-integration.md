@@ -52,10 +52,17 @@ Team-level aggregates + game phase. Verified encodings we rely on:
 
 ### Settlement proof (`/api/scores/stat-validation` → `Txoracle.validateStat`)
 
-- TxLINE builds a **hierarchical Merkle tree** (stat → event subtree → fixture → main tree) and publishes **daily Merkle roots** to Solana, stored in PDAs like `daily_scores_roots[epoch_day]`.
-- `/api/scores/stat-validation` returns the stat, its proof nodes, and a fixture summary.
-- On-chain, the **`Txoracle`** program's `validateStat` instruction (read-only, ~1.4M CU) reconstructs the leaf, hashes up the proof, and compares against the published root. It can verify a single stat, or predicates like `statA - statB > 0` — exactly what "did A advance?" needs.
-- Bracket Bond calls this via CPI inside `settle_round` (`Proof` mode). Helpers `toBytes32()` / `toProofNodes()` format the proof for on-chain use (see `scripts/txline/statValidation.ts`).
+**Program ids (Txoracle):** devnet `6pW64gN1s2uqjHkn1unFeEjAwJkPGHoppGvS715wyP2J` · mainnet `9ExbZjAapQww1vfcisDmrngPinHTEfpjYRWMunJgcKaA` (v1.5.5).
+
+**Endpoint:** `GET /api/scores/stat-validation?fixtureId=&seq=&statKey=` returns:
+`summary { fixtureId, updateStats { updateCount, minTimestamp, maxTimestamp }, eventStatsSubTreeRoot }`, `subTreeProof[]`, `mainTreeProof[]`, `statToProve`, `eventStatRoot`, `statProof[]` (+ `statToProve2`/`eventStatRoot2`/`statProof2` for two-stat). Proof nodes are `{ hash: hex32, isRightSibling: bool }`.
+
+**Instruction:** `validateStat(ts: i64, fixtureSummary, fixtureProof: ProofNode[], mainTreeProof: ProofNode[], predicate, statA, statB?, op?) -> bool`
+- discriminator `[107, 197, 232, 90, 191, 136, 105, 185]` (there is also `validateStatV2`).
+- account: `dailyScoresMerkleRoots` = PDA `["daily_scores_roots", epochDay as u16 LE]`, `epochDay = floor(minTimestamp_ms / 86_400_000)`.
+- "did A advance?" = two-stat difference: `statA` (advancing team's goals+shootout), `statB` (opponent), `predicate = GreaterThan(0)`, `op = Subtract`.
+
+**How Bracket Bond uses it (trustless):** the client builds the `validateStat` instruction from the Txoracle IDL (`scripts/txline/statValidation.ts` → `buildValidateStatIx`), and passes its data + accounts into `settle_round` (`Proof` mode). The program **relays the CPI and requires the returned `bool` to be `true`** via `get_return_data()` — so an unproven or false result cannot settle a round. (Docs also show an off-chain `.view()` for a read-only check; we enforce it on-chain instead.) The CPI costs ~1.4M CU → add a `ComputeBudget` instruction to the settle transaction.
 
 ## Known limitations (design-shaping)
 
@@ -72,8 +79,25 @@ Verified from the OpenAPI + soccer-feed docs:
 - `scripts/txline/statValidation.ts` — fetch stat + proof, format for the `validateStat` CPI
 - `scripts/txline/types.ts` — shared payload types
 
-## Open items to confirm with TxLINE (Telegram `TxLINEChat`)
+## Auth & endpoints (verified 2026-07-09)
 
-1. Exact `Txoracle` program id (mainnet/devnet) + `validateStat` account metas / arg layout (to finish the CPI).
-2. Whether a richer per-kick penalty feed exists beyond the public schema (would unlock finer markets — not required for this build).
+- API base: mainnet `https://txline.txodds.com`, devnet `https://txline-dev.txodds.com`.
+- `POST /auth/guest/start` → `{ token }` (JWT, 30-day). No body.
+- Free World-Cup tier: on-chain subscribe with `SERVICE_LEVEL_ID = 1` (60s delay, any net) or `12` (real-time, mainnet). No token purchase, no rate limits, commercial use allowed.
+- `POST /api/token/activate` (Bearer JWT) with `{ txSig, signature (base64 wallet sig), leagues[] }` → `{ apiToken }`.
+- Every data request: `Authorization: Bearer <jwt>` + `X-Api-Token: <apiToken>`.
+- Snapshots: `GET /api/fixtures/snapshot?competitionId=`, `GET /api/odds/snapshot/{fixtureId}`, `GET /api/scores/snapshot/{fixtureId}`. Streams: `GET /api/odds/stream`, `GET /api/scores/stream` (SSE).
+
+## Compliance (hackathon terms)
+
+- **Original work only**, built during the hackathon; only attributed open-source libs allowed as pre-existing code. Open to natural persons.
+- **TxLINE Data is licensed for the hackathon only** — do not redistribute/publish it or use it to build competing products; license ends when the hackathon concludes. → we commit **synthetic** sample fixtures only (`fixtures/knockout-run.json`); real feed caches stay in `fixtures/cache/` (gitignored).
+- You retain ownership; TxODDS gets a licence to showcase winners. No FIFA branding.
+- Multi-track: may enter multiple, but **win at most one prize**.
+- Provide judges a free, testable environment (our devnet deploy + `SETUP.md` cover this).
+
+## Still to confirm with TxLINE (Telegram `TxLINEChat`)
+
+1. Exact SSE payload field names for `odds/stream` / `scores/stream` (our parsers use best-guess keys; historical scores are `{ seq, ts, gameState }`).
+2. The Txoracle **IDL JSON** (to load the program client-side for `buildValidateStatIx`).
 3. Daily-root publish cadence during the World Cup (affects settlement finality timing).

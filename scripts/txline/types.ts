@@ -32,17 +32,8 @@ export interface ScoreUpdate {
   shootout?: [number, number];
 }
 
-/** The stat + Merkle proof used to settle a round on-chain. */
-export interface StatValidation {
-  fixtureId: string;
-  statKey: number;
-  value: number;
-  /** proof node hashes (hex), leaf -> root order */
-  proof: string[];
-  /** the daily root this proof hashes up to (hex) */
-  root: string;
-  epochDay: number;
-}
+// Stat-validation / proof types live in ./statValidation.ts (they mirror the
+// Txoracle IDL shapes used to build the on-chain validateStat instruction).
 
 /** Convert decimal odds to an implied probability in [0, 1]. */
 export function impliedProbability(decimal: number): number {

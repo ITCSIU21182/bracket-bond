@@ -64,7 +64,7 @@ export class BracketBondClient {
 
   // --- Reads ---
   async getMarket(market: PublicKey): Promise<MarketView> {
-    const m: any = await this.program.account.market.fetch(market);
+    const m: any = await (this.program.account as any).market.fetch(market);
     return {
       title: m.title,
       status: m.status === 0 ? "open" : "resolved",
@@ -76,7 +76,7 @@ export class BracketBondClient {
   }
 
   async getOutcome(market: PublicKey, index: number): Promise<OutcomeView> {
-    const o: any = await this.program.account.outcome.fetch(this.outcome(market, index));
+    const o: any = await (this.program.account as any).outcome.fetch(this.outcome(market, index));
     return {
       index: o.index,
       teamId: o.teamId,
