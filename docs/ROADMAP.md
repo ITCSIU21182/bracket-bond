@@ -1,0 +1,69 @@
+# Roadmap — remaining work
+
+Deadline: **2026-07-19 23:59 UTC**. Priorities: **P0** = required for a credible
+submission, **P1** = makes it strong, **P2** = polish/nice-to-have.
+
+## ✅ Done (baseline in repo)
+
+- Anchor program: `initialize · create_market · add_outcome · update_mark · buy ·
+  settle_round (proof-enforced via get_return_data) · finalize · redeem · claim_fees`;
+  single-pot solvency model. Compiles (`cargo check`).
+- TxLINE client: guest auth flow, odds/scores SSE, **real `validateStat` CPI builder**
+  (correct response shape, PDA, predicate).
+- Replay harness + end-to-end **solvency test**.
+- Frontend starter (Next.js) + client lib.
+- Docs: spec, architecture, txline-integration, SETUP, TESTING, this file.
+- TypeScript clean across scripts/tests/app.
+
+---
+
+## P0 — required
+
+- [ ] **Build on a capable machine.** Solana CLI ≥1.18/Agave 2.x, `anchor keys sync`,
+      `anchor build`. _Accept:_ `target/idl/bracket_bond.json` generated.
+- [ ] **`anchor test` green.** _Accept:_ `1 passing`, solvency asserts hold (Tier 1).
+- [ ] **Deploy devnet + `pnpm replay` end-to-end.** _Accept:_ replay prints full
+      run incl. redeem payout (Tier 2). Record it.
+- [ ] **Get the Txoracle IDL** (Telegram `TxLINEChat`) and load it client-side so
+      `buildValidateStatIx` runs against the real program. _Accept:_ a real
+      `stat-validation` response builds a `validateStat` ix that `.view()` returns
+      `true` for a finished WC fixture.
+- [ ] **PROOF-mode settlement once, for real.** Settle one real knockout tie via
+      `settle_round` in `PROOF` mode. _Accept:_ succeeds on a valid proof, reverts
+      `ProofFailed` on a tampered one (Tier 3).
+- [ ] **Confirm SSE payload field names** (odds/scores) and fix
+      `oddsStream.ts`/`scoresStream.ts` parsers. _Accept:_ `pnpm txline:demo <fixtureId>`
+      prints live marks + detects full-time.
+- [ ] **Replace placeholder program id** everywhere; `.env` filled.
+- [ ] **Demo video ≤5 min** + brief technical doc listing exact TxLINE endpoints used
+      (submission requirement).
+
+## P1 — strong
+
+- [ ] **`sell` / exit-anytime** (the "exitable bond" headline). Add a `sell`
+      instruction: burn shares, pay `shares × mark` bounded by pot reserves; keep the
+      solvency invariant (never pay more than the vault holds). Update replay to show a
+      mid-tournament exit. _Accept:_ test that exit + later settlement never underpays.
+- [ ] **Frontend live:** wallet-adapter provider, read market/outcomes via
+      `BracketBondClient`, real `buy` tx, and a settlement feed via
+      `connection.onAccountChange` on each Outcome PDA. _Accept:_ can buy + see a mark
+      update on devnet from the browser.
+- [ ] **Multi-round arc (4 rounds)** in the flagship market + `ComputeBudget` ix in the
+      settle tx. _Accept:_ replay runs a 4-round bracket.
+- [ ] **Guards & polish:** cap `add_outcome` count, reject buys after first settlement
+      if desired, event logs (`emit!`) for indexing.
+
+## P2 — polish
+
+- [ ] **Proof-receipt collectible:** mint each settled round's proof as a shareable NFT.
+- [ ] AI-pundit / notifications on big odds shifts (display only — no settlement).
+- [ ] Nicer UI (team will redesign).
+
+---
+
+## Suggested order for the other-machine agent
+
+1. Tier 0 → Tier 1 (`anchor test`) → Tier 2 (`pnpm replay`). Report results.
+2. P1 **`sell`** instruction + its test (self-contained, no TxLINE creds needed).
+3. Frontend live reads/buy.
+4. When Txoracle IDL + subscription arrive: P0 PROOF-mode settlement (Tier 3).

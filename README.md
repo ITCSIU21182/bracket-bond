@@ -36,10 +36,14 @@ To keep that claim honest, **every market is limited to objective, TxLINE-provab
 
 ```
 bracket-bond/
+├── AGENTS.md                   # Orientation for an AI agent working on the repo
 ├── docs/
 │   ├── spec.md                 # Product spec (refined PRD)
 │   ├── architecture.md         # System design, on-chain accounts, data flow, solvency
-│   └── txline-integration.md   # Exact TxLINE endpoints + how each is used (verified)
+│   ├── txline-integration.md   # Exact TxLINE endpoints + validateStat CPI (verified)
+│   ├── SETUP.md                # Toolchain, build, test, deploy, run
+│   ├── TESTING.md              # Verification runbook (tiers + expected results)
+│   └── ROADMAP.md              # Remaining work (P0/P1/P2) + acceptance criteria
 ├── programs/bracket-bond/      # Solana Anchor program (Rust) — the market + settlement
 ├── scripts/
 │   ├── txline/                 # TxLINE client: auth, odds/scores SSE, stat-validation
