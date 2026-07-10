@@ -47,8 +47,12 @@ This exercises the **full core feature set** in `TRUSTED_ORACLE` mode:
 - the winner's payout ≈ pool − fee (loser's stake forfeited to the pot),
 - the vault never underpays.
 
-**Common fail:** `DeclaredProgramIdMismatch` → you skipped `anchor keys sync`;
-re-run it and `anchor build`. `lock file version 4` → Solana CLI < 1.18.
+**Common fail:** `DeclaredProgramIdMismatch (4100)` → the program id is not
+identical in all three places. After `anchor keys sync`, confirm `declare_id!`
+(in `lib.rs`), `[programs.localnet]`/`[programs.devnet]` (in `Anchor.toml`), and
+the deploy keypair all share the **same** pubkey; if not, set them equal and
+`anchor build` again. `lock file version 4` / edition-2024 build errors → use the
+pinned Agave 4.0.2 (`Anchor.toml [toolchain] solana_version`).
 
 ---
 
@@ -66,7 +70,14 @@ pnpm replay
 listed, two buys, then per round: odds `seq` lines with moving marks, a
 `⚑ settled by proof → outcome N eliminated` line, then `finalized`, then
 `redeemed winning position → +X.XXX SOL`, ending with the "no human, no dispute"
-line. This is the demo shown to judges (record ≤5 min).
+line. Economics must be exact (pot − fee to winner; loser's stake forfeited).
+This is the demo shown to judges (record ≤5 min).
+
+> **Devnet faucet blocked?** The devnet airdrop is frequently rate-limited
+> (0 SOL), which blocks `anchor deploy` there. Run Tier 2 on a **local validator**
+> instead (`solana-test-validator` + `ANCHOR_PROVIDER_URL=http://127.0.0.1:8899`,
+> or reuse the `anchor test` validator) — it exercises the identical code paths
+> (real deploy + replay) and is what was verified.
 
 ---
 

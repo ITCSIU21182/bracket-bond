@@ -8,15 +8,17 @@ machine.
 | Tool | Version | Install |
 |---|---|---|
 | Rust | 1.79+ (tested 1.96) | `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \| sh` |
-| Solana / Agave CLI | **1.18.x or Agave 2.x** | `sh -c "$(curl -sSfL https://release.anza.xyz/stable/install)"` |
+| Solana / Agave CLI | **Agave 4.0.2** (verified); 1.18+ min | `sh -c "$(curl -sSfL https://release.anza.xyz/stable/install)"` |
 | Anchor | **0.31.x** | `cargo install --git https://github.com/coral-xyz/anchor avm && avm install 0.31.0 && avm use 0.31.0` |
 | Node | 20+ | nvm / system |
 | pnpm | 9+ | `npm i -g pnpm` |
 
-> ⚠️ **Solana CLI must be ≥ 1.18.** With the older 1.17 toolchain, `anchor build`
-> fails with `lock file version 4 ... Cargo needs to be updated` (the bundled
-> BPF cargo can't read a v4 `Cargo.lock`). Upgrading the CLI fixes it. The Rust
-> program itself is verified to type-check via `cargo check`.
+> ⚠️ **Toolchain matters.** `Cargo.lock` pulls in edition-2024 crates, so
+> `anchor build` needs platform-tools with Rust ≥ 1.85. `Anchor.toml` pins
+> `solana_version = "4.0.2"` for exactly this — verified building + testing on
+> **Agave 4.0.2 / platform-tools v1.53**. Very old CLIs (e.g. 1.17) fail earlier
+> with `lock file version 4 ... Cargo needs to be updated`. Windows: use WSL2
+> (Ubuntu) — `anchor build` / `solana-test-validator` don't run native on Windows.
 
 ## 2. Install dependencies
 
@@ -58,7 +60,7 @@ the **solvency invariant** (the vault never underpays) throughout.
 ```bash
 solana config set --url devnet
 solana-keygen new -o ~/.config/solana/id.json    # if you don't have a wallet
-solana airdrop 2
+solana airdrop 2                                  # devnet faucet is often rate-limited
 anchor deploy --provider.cluster devnet
 ```
 

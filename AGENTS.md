@@ -44,9 +44,19 @@ match data (`Txoracle.validateStat` on Solana), not a human oracle. See
   **`PROOF` mode** (1) needs the Txoracle IDL + a live TxLINE subscription — see
   `docs/txline-integration.md` "Still to confirm".
 
-## Verified state (as of last commit)
+## Verified state
 
-- `cargo check -p bracket-bond` → compiles (warnings only).
-- `pnpm exec tsc --noEmit` (root) and `pnpm -C app exec tsc --noEmit` → clean.
-- `anchor test` / `anchor build` / devnet deploy → **not yet run here** (needs
-  Solana ≥1.18); this is the first thing to verify on a capable machine.
+Verified end-to-end on Ubuntu 26.04 (WSL2) · Rust 1.97 · **Agave 4.0.2** ·
+platform-tools v1.53 · Anchor 0.31 · Node 20 · pnpm 9:
+
+- Tier 0: `cargo check` + `tsc --noEmit` ×3 → clean.
+- Tier 1: `anchor build` + `anchor test` → **1 passing** (solvency asserts hold).
+- Tier 2: deploy + `pnpm replay` → full run on **localnet** (real deploy + replay;
+  economics exact: pot − fee to winner, loser's stake forfeited). Devnet deploy
+  blocked only by faucet rate-limits (infra, not code).
+- Frontend `next build` → passes.
+- Tier 3 (PROOF mode) → blocked by design: needs the Txoracle IDL + a live TxLINE
+  subscription. CPI code is in place and shape-correct.
+
+`Anchor.toml` pins `solana_version = "4.0.2"` so `anchor build` uses a
+platform-tools new enough for the edition-2024 crates in `Cargo.lock`.
