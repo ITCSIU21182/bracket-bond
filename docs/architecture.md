@@ -50,7 +50,7 @@ All PDAs are derived from stable seeds so the client can address them determinis
 | `create_market` | authority | create `Market` + `Vault`; register the outcome set (teams) and the hardcoded bracket path |
 | `update_mark` | oracle authority | write the latest TxLINE-derived implied probability into each `Outcome.mark` (drives display + buy/sell price) |
 | `buy` | anyone | deposit `lamports` collateral into an outcome; mint shares at `shares = lamports / mark`; update `Position` |
-| `sell` *(upgrade)* | share holder | burn shares, withdraw `lamports = shares * mark` from that outcome's collateral (bounded by pool reserves — cannot go insolvent) |
+| `sell` | share holder | exit before resolution: burn shares, pay `shares × mark` from the pot, **clamped to `total_collateral`** so the vault can never underpay |
 | `settle_round` | oracle authority | for each outcome, take the round's advancement result **proven via `Txoracle.validateStat`**; mark losers `Eliminated`, move their collateral to survivors; advance the round; on the final round mark the winner `Won` and flip `Market` to `Resolved` |
 | `redeem` | winner holder | after `Resolved`, burn winning shares for a pro-rata share of the winning outcome's collateral, minus protocol fee |
 
@@ -77,7 +77,7 @@ lamports(Vault) >= Σ Outcome.collateral   AND
 How each path preserves it:
 
 - **buy** — adds `L` lamports to `Vault` and to `Outcome.collateral`. Mints `L / mark` shares. Conservative.
-- **sell** — pays `shares * mark`, but **clamped to that outcome's `collateral`**. The pool can never pay more than it holds → no buyback hole.
+- **sell** — pays `shares × mark`, **clamped to `total_collateral`**. The vault can never pay more than it holds → no buyback hole (a late "bank-run" seller may get less than mark).
 - **settle_round** — moves an eliminated outcome's `collateral` into the survivors' pools. Pure transfer between outcomes; total is unchanged (conservative by construction).
 - **redeem** — pays winners strictly from the winning outcome's `collateral`, taking `fee_bps` into `Market.fees_accrued` first.
 

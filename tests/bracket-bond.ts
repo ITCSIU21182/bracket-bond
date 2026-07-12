@@ -120,4 +120,61 @@ describe("bracket-bond", () => {
     const vaultAfter = await provider.connection.getBalance(vault);
     assert.isAtLeast(vaultAfter, fee, "vault never underpays (solvency held)");
   });
+
+  it("lets a holder exit early at the mark and stays solvent", async () => {
+    const id2 = Math.floor(Math.random() * 1_000_000);
+    const m2 = pda.market(id2);
+    const v2 = pda.vault(m2);
+
+    await program.methods
+      .createMarket(new anchor.BN(id2), "Exit test", 200)
+      .accounts({ config, market: m2, vault: v2, authority: wallet, systemProgram: SystemProgram.programId })
+      .rpc();
+    for (const [index, mark] of [
+      [0, 400000],
+      [1, 300000],
+    ] as const) {
+      await program.methods
+        .addOutcome(index, 1000 + index, mark)
+        .accounts({ market: m2, outcome: pda.outcome(m2, index), authority: wallet, systemProgram: SystemProgram.programId })
+        .rpc();
+    }
+
+    // Buy 0.4 SOL on outcome 0 @ 0.40 → 1e9 shares.
+    await program.methods
+      .buy(0, new anchor.BN(0.4 * LAMPORTS_PER_SOL))
+      .accounts({
+        market: m2,
+        outcome: pda.outcome(m2, 0),
+        position: pda.position(m2, 0, wallet),
+        vault: v2,
+        buyer: wallet,
+        systemProgram: SystemProgram.programId,
+      })
+      .rpc();
+
+    const om: any = await (program.account as any).outcome.fetch(pda.outcome(m2, 0));
+    const shares = BigInt(om.sharesOutstanding.toString());
+
+    // Sell half back at the same mark → ~0.2 SOL.
+    const before = await provider.connection.getBalance(wallet);
+    await program.methods
+      .sell(0, new anchor.BN((shares / 2n).toString()))
+      .accounts({
+        market: m2,
+        outcome: pda.outcome(m2, 0),
+        position: pda.position(m2, 0, wallet),
+        vault: v2,
+        seller: wallet,
+        systemProgram: SystemProgram.programId,
+      })
+      .rpc();
+    const after = await provider.connection.getBalance(wallet);
+    assert.approximately(after - before, 0.2 * LAMPORTS_PER_SOL, 0.01 * LAMPORTS_PER_SOL, "exit pays ~shares×mark");
+
+    const mm: any = await (program.account as any).market.fetch(m2);
+    assert.approximately(Number(mm.totalCollateral), 0.2 * LAMPORTS_PER_SOL, 2000, "pot reduced by the exit");
+    const v2bal = await provider.connection.getBalance(v2);
+    assert.isAtLeast(v2bal, Number(mm.totalCollateral), "vault >= tracked collateral (solvent)");
+  });
 });

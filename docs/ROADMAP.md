@@ -40,14 +40,13 @@ submission, **P1** = makes it strong, **P2** = polish/nice-to-have.
 
 ## P1 — strong
 
-- [ ] **`sell` / exit-anytime** (the "exitable bond" headline). Add a `sell`
-      instruction: burn shares, pay `shares × mark` bounded by pot reserves; keep the
-      solvency invariant (never pay more than the vault holds). Update replay to show a
-      mid-tournament exit. _Accept:_ test that exit + later settlement never underpays.
-- [ ] **Frontend live:** wallet-adapter provider, read market/outcomes via
-      `BracketBondClient`, real `buy` tx, and a settlement feed via
-      `connection.onAccountChange` on each Outcome PDA. _Accept:_ can buy + see a mark
-      update on devnet from the browser.
+- [x] **`sell` / exit-anytime** — DONE: `sell` instruction (mark-priced, clamped to
+      the pot), solvency test, and a mid-tournament exit in the replay. _Re-run Tier 1
+      to confirm on hardware._
+- [x] **Frontend live** — DONE (mostly): wallet-adapter providers, `BracketBondClient`
+      reads, real `buy` + `Exit` (sellAll) txns wired (`app/lib/useBracketBond.ts`).
+      _Still TODO:_ live `connection.onAccountChange` subscription (currently refreshes
+      after each tx), and copy the built IDL to `app/public/idl/bracket_bond.json`.
 - [ ] **Multi-round arc (4 rounds)** in the flagship market + `ComputeBudget` ix in the
       settle tx. _Accept:_ replay runs a 4-round bracket.
 - [ ] **Guards & polish:** cap `add_outcome` count, reject buys after first settlement

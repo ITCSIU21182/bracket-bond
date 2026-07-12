@@ -60,3 +60,8 @@ platform-tools v1.53 · Anchor 0.31 · Node 20 · pnpm 9:
 
 `Anchor.toml` pins `solana_version = "4.0.2"` so `anchor build` uses a
 platform-tools new enough for the edition-2024 crates in `Cargo.lock`.
+
+**Added since that run (needs a fresh Tier 1 re-run to confirm on hardware; here
+only `cargo check` + `tsc` were run):** `sell`/exit-anytime instruction + solvency
+test + a mid-tournament exit in the replay; live frontend wiring (wallet providers,
+`useBracketBond` hook, buy/exit in the page).

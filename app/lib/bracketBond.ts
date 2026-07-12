@@ -86,6 +86,15 @@ export class BracketBondClient {
     };
   }
 
+  async getPosition(market: PublicKey, index: number, owner: PublicKey): Promise<bigint> {
+    try {
+      const p: any = await (this.program.account as any).position.fetch(this.position(market, index, owner));
+      return BigInt(p.shares.toString());
+    } catch {
+      return 0n; // no position yet
+    }
+  }
+
   // --- Writes ---
   async buy(market: PublicKey, index: number, lamports: number, buyer: PublicKey) {
     return this.program.methods
@@ -96,6 +105,20 @@ export class BracketBondClient {
         position: this.position(market, index, buyer),
         vault: this.vault(market),
         buyer,
+        systemProgram: SystemProgram.programId,
+      })
+      .transaction();
+  }
+
+  async sell(market: PublicKey, index: number, shares: bigint, seller: PublicKey) {
+    return this.program.methods
+      .sell(index, new anchor.BN(shares.toString()))
+      .accounts({
+        market,
+        outcome: this.outcome(market, index),
+        position: this.position(market, index, seller),
+        vault: this.vault(market),
+        seller,
         systemProgram: SystemProgram.programId,
       })
       .transaction();

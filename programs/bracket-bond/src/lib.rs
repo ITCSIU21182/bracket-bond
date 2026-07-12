@@ -166,6 +166,64 @@ pub mod bracket_bond {
         Ok(())
     }
 
+    /// Exit a position before resolution: sell shares back at the current mark.
+    /// `payout = shares * mark / MARK_SCALE`, clamped to the pot so the vault can
+    /// never underpay (a late "bank-run" seller may receive less than mark).
+    pub fn sell(ctx: Context<Sell>, _index: u8, shares: u128) -> Result<()> {
+        require!(
+            ctx.accounts.market.status == market_status::OPEN,
+            BracketError::MarketNotOpen
+        );
+        require!(
+            ctx.accounts.outcome.status == outcome_status::ALIVE,
+            BracketError::OutcomeNotAlive
+        );
+        let held = ctx.accounts.position.shares;
+        require!(shares > 0 && shares <= held, BracketError::InsufficientShares);
+        let mark = ctx.accounts.outcome.mark as u128;
+        require!(mark >= 1 && mark <= MARK_SCALE, BracketError::InvalidMark);
+
+        let raw = shares
+            .checked_mul(mark)
+            .ok_or(BracketError::MathOverflow)?
+            .checked_div(MARK_SCALE)
+            .ok_or(BracketError::MathOverflow)? as u64;
+        let payout = raw.min(ctx.accounts.market.total_collateral);
+
+        // Effects (checks-effects-interactions).
+        ctx.accounts.outcome.shares_outstanding = ctx
+            .accounts
+            .outcome
+            .shares_outstanding
+            .checked_sub(shares)
+            .ok_or(BracketError::MathOverflow)?;
+        ctx.accounts.position.shares = held.checked_sub(shares).ok_or(BracketError::MathOverflow)?;
+        ctx.accounts.market.total_collateral = ctx
+            .accounts
+            .market
+            .total_collateral
+            .checked_sub(payout)
+            .ok_or(BracketError::MathOverflow)?;
+
+        // Interaction: pay from the vault PDA.
+        let market_key = ctx.accounts.market.key();
+        let vault_bump = ctx.accounts.market.vault_bump;
+        let seeds: &[&[u8]] = &[b"vault", market_key.as_ref(), &[vault_bump]];
+        let signer = &[seeds];
+        system_program::transfer(
+            CpiContext::new_with_signer(
+                ctx.accounts.system_program.to_account_info(),
+                Transfer {
+                    from: ctx.accounts.vault.to_account_info(),
+                    to: ctx.accounts.seller.to_account_info(),
+                },
+                signer,
+            ),
+            payout,
+        )?;
+        Ok(())
+    }
+
     /// Eliminate an outcome for the current round.
     ///
     /// In `PROOF` mode this relays a `Txoracle.validateStat` CPI (built by the
@@ -437,6 +495,32 @@ pub struct Buy<'info> {
     pub vault: SystemAccount<'info>,
     #[account(mut)]
     pub buyer: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+#[instruction(index: u8)]
+pub struct Sell<'info> {
+    #[account(mut)]
+    pub market: Account<'info, Market>,
+    #[account(
+        mut,
+        seeds = [b"outcome", market.key().as_ref(), &[index]],
+        bump = outcome.bump,
+        constraint = outcome.market == market.key() @ BracketError::Unauthorized
+    )]
+    pub outcome: Account<'info, Outcome>,
+    #[account(
+        mut,
+        seeds = [b"position", market.key().as_ref(), &[index], seller.key().as_ref()],
+        bump = position.bump,
+        constraint = position.owner == seller.key() @ BracketError::Unauthorized
+    )]
+    pub position: Account<'info, Position>,
+    #[account(mut, seeds = [b"vault", market.key().as_ref()], bump = market.vault_bump)]
+    pub vault: SystemAccount<'info>,
+    #[account(mut)]
+    pub seller: Signer<'info>,
     pub system_program: Program<'info, System>,
 }
 

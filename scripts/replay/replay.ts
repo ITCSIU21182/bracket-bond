@@ -79,7 +79,7 @@ async function main() {
   }
 
   // 4) Play each round: marks move, then the round settles by proof.
-  for (const round of run.rounds) {
+  for (const [ri, round] of run.rounds.entries()) {
     log(`\n=== ${round.label} ===`);
     for (const step of round.oddsTimeline) {
       for (const [idxStr, mark] of Object.entries(step.marks)) {
@@ -104,6 +104,28 @@ async function main() {
       })
       .rpc();
     log(`  ⚑ settled by proof → outcome ${round.eliminate} eliminated. ${round.note}`);
+
+    // After round 1, demo a mid-tournament exit: sell half the winner position.
+    if (ri === 0) {
+      const pos: any = await (program.account as any).position.fetch(pda.position(market, run.winner, wallet));
+      const half = BigInt(pos.shares.toString()) / 2n;
+      if (half > 0n) {
+        const before = await provider.connection.getBalance(wallet);
+        await program.methods
+          .sell(run.winner, new anchor.BN(half.toString()))
+          .accounts({
+            market,
+            outcome: pda.outcome(market, run.winner),
+            position: pda.position(market, run.winner, wallet),
+            vault,
+            seller: wallet,
+            systemProgram: SystemProgram.programId,
+          })
+          .rpc();
+        const after = await provider.connection.getBalance(wallet);
+        log(`  ↔ mid-tournament EXIT: sold half at the live mark → +${((after - before) / LAMPORTS_PER_SOL).toFixed(3)} SOL (held the rest)`);
+      }
+    }
   }
 
   // 5) Finalize + redeem the winner.
