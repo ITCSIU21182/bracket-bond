@@ -100,6 +100,24 @@ runnable yet" if you lack those, don't fake it.
 
 ---
 
+## P1 — sell/exit + live frontend (added 2026-07-13; re-run to confirm)
+
+After `git pull` + `pnpm install` (root and `app/`):
+
+- **Program `sell`:** `anchor test` should now show **2 passing** — the original
+  plus `lets a holder exit early at the mark and stays solvent` (buys 0.4◎ @0.40,
+  sells half → ~0.2◎ back, pot drops to ~0.2◎, vault ≥ collateral).
+- **Replay exit:** `pnpm replay` now prints, after the Quarter-finals settle,
+  `↔ mid-tournament EXIT: sold half at the live mark → +X.XXX SOL (held the rest)`,
+  and the final redeem is on the *remaining* half (smaller than the earlier +0.490).
+  > `pnpm replay` creates market id 1; re-running on the same ledger fails on
+  > `create_market` (account in use) — restart `solana-test-validator` for a fresh run.
+- **Frontend:** `pnpm -C app exec tsc --noEmit` clean and `pnpm -C app build`
+  passes. To see it *live*: copy the built IDL to `app/public/idl/bracket_bond.json`,
+  set `app/.env.local` (from `.env.local.example`) to a deployed market + cluster,
+  `pnpm -C app dev`, connect Phantom → outcomes render live with **Buy / Exit**. With
+  no market it shows the sample view (still builds/runs).
+
 ## Feature checklist
 
 | Feature | How to verify | Tier |
@@ -115,8 +133,8 @@ runnable yet" if you lack those, don't fake it.
 | Solvency invariant holds | `anchor test` asserts | 1 |
 | Live mark from odds (replay) | `pnpm replay` | 2 |
 | Proof-enforced settlement | Tier 3 | 3 (blocked) |
-| `sell` / exit-anytime | **not implemented** (see ROADMAP P1) | — |
-| Frontend live reads/buy | **starter only** (see ROADMAP P1) | — |
+| `sell` / exit-anytime | `anchor test` (2nd test) + replay exit line | 1–2 |
+| Frontend live reads/buy/exit | `app` tsc + `next build`; live needs a deployed market + IDL | 0 / 2 |
 
 ## Reporting
 
