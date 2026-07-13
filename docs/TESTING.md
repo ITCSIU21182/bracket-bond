@@ -81,22 +81,42 @@ This is the demo shown to judges (record ≤5 min).
 
 ---
 
-## Tier 3 — PROOF-mode settlement (live TxLINE) — currently manual/blocked
+## Tier 3 — PROOF-mode settlement (live TxLINE, devnet) — NOW RUNNABLE
 
-Requires: a TxLINE World-Cup subscription (see `docs/worldcup`) and the
-**Txoracle IDL JSON** (request via Telegram `TxLINEChat`). Steps:
+The Txoracle devnet IDL is vendored and the subscribe/activate/validate flow is
+wired (from `txodds/tx-on-chain`). This has **not been run anywhere yet** — it is
+the key thing to verify. Report exactly what happens; do not fake a pass.
 
-1. Fill `TXLINE_*` activation fields + `TXORACLE_PROGRAM_ID` in `.env`.
-2. `initialize` with `settlement_mode = 1` (PROOF).
-3. Drive `settle_round` with a real proof: fetch via
-   `scripts/txline/statValidation.ts → fetchStatValidation`, build the CPI with
-   `buildValidateStatIx(txoracle, validation)`, pass `relayThroughSettleRound(ix)`
-   into `settle_round` (+ a `ComputeBudget` instruction ~1.4M CU).
+**Prereqs:** a **funded devnet wallet** (`ANCHOR_WALLET`, needs some SOL for the
+subscription tx), `ANCHOR_PROVIDER_URL=https://api.devnet.solana.com`, and `.env`
+from `.env.example` (devnet TxLINE host + Txoracle id are pre-filled).
 
-**Pass:** `settle_round` succeeds only when `validateStat` returns `true`; a
-tampered stat/proof makes it revert with `ProofFailed`. **Blocked until** the
-Txoracle IDL + a live subscription are available — report this tier as "not
-runnable yet" if you lack those, don't fake it.
+**Step A — smoke test the proof path** (`scripts/txline/index.ts`):
+
+1. Find a **finished World Cup fixture** on devnet: query
+   `GET /api/fixtures/updates/{epochDay}/{hourOfDay}` (scan the last ~12h, as in
+   the tx-on-chain `fixture_validation_view_only.ts`) to get a `FixtureId` + a
+   scores `seq` (or use `/api/scores/historical/{fixtureId}`).
+2. Run:
+   ```bash
+   ANCHOR_WALLET=<keypair.json> ANCHOR_PROVIDER_URL=https://api.devnet.solana.com \
+     pnpm txline:demo <fixtureId> <seq> 1,2
+   ```
+   **Pass:** prints `1/4 subscribing… ✓`, `2/4 activating… apiToken…`,
+   `3/4 stat-validation…`, and finally **`validateStatV2 → true`**. That proves
+   the whole TxLINE proof path end-to-end (subscribe → activate → fetch → on-chain
+   `.view()`).
+
+**Step B — enforce it on-chain** (optional, full loop): deploy Bracket Bond, call
+`initialize` with `settlement_mode = 1` (PROOF), then drive `settle_round` with the
+built instruction — `buildValidateStatV2Ix(txoracle, val, advancementStrategy())`
++ `relayThroughSettleRound(ix)`, plus a `ComputeBudget` (~1.4M CU) on the tx.
+**Pass:** `settle_round` succeeds only when the proof verifies; a tampered
+stat/proof reverts with `ProofFailed`.
+
+**Likely first-run issues to report:** exact `subscribe` account names, live
+`stat-validation` field names, or `NDimensionalStrategy` shape — send ~30 lines of
+the failing log so they can be reconciled against the vendored IDL.
 
 ---
 
@@ -132,7 +152,7 @@ After `git pull` + `pnpm install` (root and `app/`):
 | Redeem pro-rata + fee | `anchor test` | 1 |
 | Solvency invariant holds | `anchor test` asserts | 1 |
 | Live mark from odds (replay) | `pnpm replay` | 2 |
-| Proof-enforced settlement | Tier 3 | 3 (blocked) |
+| Proof-enforced settlement (validateStatV2) | `pnpm txline:demo` → `true` | 3 (runnable; needs devnet wallet + WC fixture) |
 | `sell` / exit-anytime | `anchor test` (2nd test) + replay exit line | 1–2 |
 | Frontend live reads/buy/exit | `app` tsc + `next build`; live needs a deployed market + IDL | 0 / 2 |
 

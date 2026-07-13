@@ -61,7 +61,8 @@ platform-tools v1.53 · Anchor 0.31 · Node 20 · pnpm 9:
 `Anchor.toml` pins `solana_version = "4.0.2"` so `anchor build` uses a
 platform-tools new enough for the edition-2024 crates in `Cargo.lock`.
 
-**Added since that run (needs a fresh Tier 1 re-run to confirm on hardware; here
-only `cargo check` + `tsc` were run):** `sell`/exit-anytime instruction + solvency
-test + a mid-tournament exit in the replay; live frontend wiring (wallet providers,
-`useBracketBond` hook, buy/exit in the page).
+**Added since that run (only `cargo check` + `tsc` were run here — needs Tier 1
+re-run + the new Tier 3 smoke test on hardware):** `sell`/exit-anytime + solvency
+test + replay exit; live frontend wiring; and the **real TxLINE flow** wired from
+`txodds/tx-on-chain` (vendored devnet IDL, `validateStatV2`, guest+nacl auth,
+on-chain free-tier `subscribe`). Tier 3 is now runnable via `pnpm txline:demo`.
