@@ -1,74 +1,61 @@
 // Fetch a stat + Merkle proof from TxLINE and build the real
-// `Txoracle.validateStat` instruction, which Bracket Bond relays inside
-// `settle_round` (PROOF mode).
-//
-// Verified against docs 2026-07-09:
-//   GET /api/scores/stat-validation?fixtureId=&seq=&statKey=
-//   Txoracle.validateStat(ts, fixtureSummary, fixtureProof[], mainTreeProof[],
-//                         predicate, statA, statB?, op?) -> bool
-//   account: dailyScoresMerkleRoots = PDA["daily_scores_roots", epochDay(u16 LE)]
-//   epochDay = floor(minTimestampMs / 86_400_000)
-//
-// Program ids: devnet 6pW64gN1s2uqjHkn1unFeEjAwJkPGHoppGvS715wyP2J
-//              mainnet 9ExbZjAapQww1vfcisDmrngPinHTEfpjYRWMunJgcKaA
+// `Txoracle.validateStatV2` instruction, which Bracket Bond relays inside
+// `settle_round` (PROOF mode). Mirrors the shapes in
+// txodds/tx-on-chain/examples/devnet/scripts/subscription_scores_1stat.ts.
 
 import * as anchor from "@coral-xyz/anchor";
 import { PublicKey, TransactionInstruction } from "@solana/web3.js";
 import { TxlineAuth } from "./auth";
+import txoracleIdl from "./idl/txoracle.json";
 
 const { BN } = anchor;
 
-export interface ProofNode {
-  hash: string; // 32-byte hex
+export const TXORACLE_PROGRAM_ID = new PublicKey((txoracleIdl as any).address);
+
+export interface ApiProofNode {
+  hash: number[] | Buffer | Uint8Array;
   isRightSibling: boolean;
 }
 
-/** Response shape of GET /api/scores/stat-validation. */
+/** Response shape of GET /api/scores/stat-validation?fixtureId=&seq=&statKeys= */
 export interface StatValidationResponse {
   summary: {
     fixtureId: number;
     updateStats: { updateCount: number; minTimestamp: number; maxTimestamp: number };
-    eventStatsSubTreeRoot: string;
+    eventStatsSubTreeRoot: number[] | Buffer;
   };
-  subTreeProof: ProofNode[];
-  mainTreeProof: ProofNode[];
-  statToProve: { key: number; value: number; period: number };
-  eventStatRoot: string;
-  statProof: ProofNode[];
-  // present only for two-stat (difference) validations
-  statToProve2?: { key: number; value: number; period: number };
-  eventStatRoot2?: string;
-  statProof2?: ProofNode[];
+  subTreeProof: ApiProofNode[];
+  mainTreeProof: ApiProofNode[];
+  eventStatRoot: number[] | Buffer;
+  statsToProve: any[]; // ScoreStat[] — one per requested statKey
+  statProofs: ApiProofNode[][];
+}
+
+/** Load the Txoracle program from the vendored devnet IDL. */
+export function loadTxoracle(provider: anchor.Provider): anchor.Program {
+  return new anchor.Program(txoracleIdl as anchor.Idl, provider);
 }
 
 export interface FetchOpts {
-  baseUrl: string;
+  baseUrl: string; // host, e.g. https://txline-dev.txodds.com
   auth: TxlineAuth;
   fixtureId: number;
   seq: number;
-  statKey: number;
+  statKeys: number | number[];
 }
 
 export async function fetchStatValidation(o: FetchOpts): Promise<StatValidationResponse> {
+  const keys = Array.isArray(o.statKeys) ? o.statKeys.join(",") : String(o.statKeys);
   const url =
     `${o.baseUrl.replace(/\/$/, "")}/api/scores/stat-validation` +
-    `?fixtureId=${o.fixtureId}&seq=${o.seq}&statKey=${o.statKey}`;
+    `?fixtureId=${o.fixtureId}&seq=${o.seq}&statKeys=${keys}`;
   const res = await fetch(url, { headers: o.auth.headers });
   if (!res.ok) throw new Error(`stat-validation ${res.status}`);
   return (await res.json()) as StatValidationResponse;
 }
 
-/** 32-byte hex -> number[] (Anchor encodes [u8; 32] from a byte array). */
-export function toBytes32(hex: string): number[] {
-  const clean = hex.startsWith("0x") ? hex.slice(2) : hex;
-  const buf = Buffer.from(clean, "hex");
-  if (buf.length !== 32) throw new Error(`expected 32-byte hash, got ${buf.length}`);
-  return [...buf];
-}
-
-export function toProofNodes(nodes: ProofNode[]): { hash: number[]; isRightSibling: boolean }[] {
-  return nodes.map((n) => ({ hash: toBytes32(n.hash), isRightSibling: n.isRightSibling }));
-}
+const mapProof = (nodes: ApiProofNode[]) =>
+  nodes.map((n) => ({ hash: Array.from(n.hash as any) as number[], isRightSibling: n.isRightSibling }));
 
 /** PDA holding the daily scores Merkle root for the day of `minTimestampMs`. */
 export function dailyScoresPda(txoracleProgramId: PublicKey, minTimestampMs: number): PublicKey {
@@ -79,78 +66,86 @@ export function dailyScoresPda(txoracleProgramId: PublicKey, minTimestampMs: num
   )[0];
 }
 
-/** GreaterThan comparison against a threshold (default: statA - statB > 0). */
-export const PREDICATE_GT_ZERO = { threshold: 0, comparison: { greaterThan: {} } };
-export const OP_SUBTRACT = { subtract: {} };
+/** Build the `StatValidationInput` payload for validateStatV2. */
+export function buildStatValidationInput(val: StatValidationResponse): any {
+  return {
+    ts: new BN(val.summary.updateStats.minTimestamp),
+    fixtureSummary: {
+      fixtureId: new BN(val.summary.fixtureId),
+      updateStats: {
+        updateCount: val.summary.updateStats.updateCount,
+        minTimestamp: new BN(val.summary.updateStats.minTimestamp),
+        maxTimestamp: new BN(val.summary.updateStats.maxTimestamp),
+      },
+      eventsSubTreeRoot: Array.from(val.summary.eventStatsSubTreeRoot as any),
+    },
+    fixtureProof: mapProof(val.subTreeProof),
+    mainTreeProof: mapProof(val.mainTreeProof),
+    eventStatRoot: Array.from(val.eventStatRoot as any),
+    stats: val.statsToProve.map((stat, i) => ({ stat, statProof: mapProof(val.statProofs[i]) })),
+  };
+}
+
+// --- Strategies (NDimensionalStrategy) ---
+
+/** stat[index] `cmp` threshold. */
+export function singleStatStrategy(
+  index: number,
+  threshold: number,
+  comparison: any = { greaterThan: {} },
+): any {
+  return {
+    geometricTargets: [],
+    distancePredicate: null,
+    discretePredicates: [{ single: { index, predicate: { threshold, comparison } } }],
+  };
+}
 
 /**
- * Build the `validateStat` instruction from a stat-validation response using
- * the Txoracle program (its IDL). Pass the resulting instruction's data +
- * accounts into Bracket Bond's `settle_round` (see relayThroughSettleRound).
- *
- * For "did A advance?" use a two-stat difference: statA = advancing team's
- * goal stat, statB = opponent's, predicate = (A - B) > 0.
+ * "Participant A advanced": stat[indexA] − stat[indexB] > 0.
+ * Request the two goal stats for the fixture (e.g. `statKeys=1,2`) so index 0/1
+ * are participant 1/2 goals. For shootout ties add the shootout stats and adjust.
  */
-export async function buildValidateStatIx(
+export function advancementStrategy(indexA = 0, indexB = 1): any {
+  return {
+    geometricTargets: [],
+    distancePredicate: null,
+    discretePredicates: [
+      {
+        binary: {
+          indexA,
+          indexB,
+          op: { subtract: {} },
+          predicate: { threshold: 0, comparison: { greaterThan: {} } },
+        },
+      },
+    ],
+  };
+}
+
+/**
+ * Build the `validateStatV2` instruction. Pass the result through
+ * `relayThroughSettleRound` into Bracket Bond's `settle_round` (+ a
+ * `ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 })` on the tx).
+ */
+export async function buildValidateStatV2Ix(
   txoracle: anchor.Program,
-  v: StatValidationResponse,
-  opts?: { predicate?: any; op?: any },
+  val: StatValidationResponse,
+  strategy: any,
 ): Promise<TransactionInstruction> {
-  const fixtureSummary = {
-    fixtureId: new BN(v.summary.fixtureId),
-    updateStats: {
-      updateCount: v.summary.updateStats.updateCount,
-      minTimestamp: new BN(v.summary.updateStats.minTimestamp),
-      maxTimestamp: new BN(v.summary.updateStats.maxTimestamp),
-    },
-    eventsSubTreeRoot: toBytes32(v.summary.eventStatsSubTreeRoot),
-  };
-
-  const statA = {
-    statToProve: v.statToProve,
-    eventStatRoot: toBytes32(v.eventStatRoot),
-    statProof: toProofNodes(v.statProof),
-  };
-
-  const statB =
-    v.statToProve2 && v.eventStatRoot2 && v.statProof2
-      ? {
-          statToProve: v.statToProve2,
-          eventStatRoot: toBytes32(v.eventStatRoot2),
-          statProof: toProofNodes(v.statProof2),
-        }
-      : null;
-
-  const predicate = opts?.predicate ?? PREDICATE_GT_ZERO;
-  const op = statB ? opts?.op ?? OP_SUBTRACT : null;
-  const targetTs = new BN(v.summary.updateStats.minTimestamp);
-  const pda = dailyScoresPda(txoracle.programId, v.summary.updateStats.minTimestamp);
-
-  return txoracle.methods
-    .validateStat(
-      targetTs,
-      fixtureSummary,
-      toProofNodes(v.subTreeProof),
-      toProofNodes(v.mainTreeProof),
-      predicate,
-      statA,
-      statB,
-      op,
-    )
+  const payload = buildStatValidationInput(val);
+  const pda = dailyScoresPda(txoracle.programId, val.summary.updateStats.minTimestamp);
+  return (txoracle.methods as any)
+    .validateStatV2(payload, strategy)
     .accounts({ dailyScoresMerkleRoots: pda })
     .instruction();
 }
 
-/**
- * Split a built validateStat instruction into the args Bracket Bond's
- * `settle_round(validate_ix_data)` expects: the raw ix data, and the ix's
- * accounts as `remaining_accounts`. `txoracleProgram` is passed as the named
- * account. The market program relays this CPI and requires the returned bool.
- */
+/** Split a built instruction into the args `settle_round` expects. */
 export function relayThroughSettleRound(ix: TransactionInstruction) {
   return {
     validateIxData: ix.data,
-    remainingAccounts: ix.keys, // AccountMeta[] for Txoracle.validateStat
+    remainingAccounts: ix.keys, // AccountMeta[] for the Txoracle instruction
     txoracleProgram: ix.programId,
   };
 }

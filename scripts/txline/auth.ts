@@ -1,15 +1,14 @@
-// TxLINE authentication (verified against docs 2026-07-09).
+// TxLINE authentication (verified against txodds/tx-on-chain examples/devnet).
 //
-// Full flow for the free World-Cup tier (see docs/worldcup):
-//   1. POST /auth/guest/start                     -> { token }   (JWT, 30-day)
-//   2. On-chain: subscribe with SERVICE_LEVEL_ID = 1 (60s delay, any net) or
-//      12 (real-time, mainnet). This is a Solana tx you send yourself; keep its
-//      signature (txSig).
-//   3. Sign an activation message with the same wallet (base64 signature).
-//   4. POST /api/token/activate { txSig, signature, leagues } (Bearer JWT)
-//                                                  -> { apiToken }
-//
-// Every data request then sends: Authorization: Bearer <jwt>, X-Api-Token: <apiToken>.
+// Flow for the free World-Cup tier:
+//   1. POST {host}/auth/guest/start                 -> { token }  (30-day JWT)
+//   2. On-chain: subscribe(serviceLevelId=1, weeks)  (see ./subscribe.ts) -> txSig
+//   3. POST {host}/api/token/activate                -> { token }  (X-Api-Token)
+//      body { txSig, walletSignature, leagues }, signed over `${txSig}:${leagues}:${jwt}`
+//   Then every data request sends: Authorization: Bearer <jwt>, X-Api-Token: <apiToken>
+
+import { Keypair } from "@solana/web3.js";
+import nacl from "tweetnacl";
 
 export interface TxlineAuth {
   jwt: string;
@@ -17,46 +16,52 @@ export interface TxlineAuth {
   headers: Record<string, string>;
 }
 
-/** Step 1: start a guest session. No body; returns a 30-day JWT. */
-export async function startGuestSession(baseUrl: string): Promise<string> {
-  const res = await fetch(`${baseUrl.replace(/\/$/, "")}/auth/guest/start`, { method: "POST" });
+export function headersFor(jwt: string, apiToken: string): Record<string, string> {
+  return { Authorization: `Bearer ${jwt}`, "X-Api-Token": apiToken };
+}
+
+/** Step 1: guest session (no body); returns a 30-day JWT. */
+export async function startGuestSession(host: string): Promise<string> {
+  const res = await fetch(`${host.replace(/\/$/, "")}/auth/guest/start`, { method: "POST" });
   if (!res.ok) throw new Error(`guest/start ${res.status}`);
   const { token } = (await res.json()) as { token: string };
   return token;
 }
 
-export interface ActivateOptions {
-  /** signature of the on-chain SERVICE_LEVEL subscription transaction */
+export interface ActivateArgs {
+  host: string;
+  jwt: string;
+  /** signature of the on-chain subscription tx */
   txSig: string;
-  /** base64-encoded wallet signature over the activation message */
-  signature: string;
-  /** league ids selected in the subscription (World Cup for the free tier) */
+  /** the subscribing wallet (signs the activation message) */
+  wallet: Keypair;
+  /** league ids selected in the subscription */
   leagues: number[];
 }
 
-/** Step 4: activate an API token against a completed subscription tx. */
-export async function activateApiToken(
-  baseUrl: string,
-  jwt: string,
-  opts: ActivateOptions,
-): Promise<string> {
-  const res = await fetch(`${baseUrl.replace(/\/$/, "")}/api/token/activate`, {
+/** Step 3: activate an API token against a completed subscription tx. */
+export async function activateApiToken(a: ActivateArgs): Promise<string> {
+  const messageString = `${a.txSig}:${a.leagues.join(",")}:${a.jwt}`;
+  const signature = Buffer.from(
+    nacl.sign.detached(new TextEncoder().encode(messageString), a.wallet.secretKey),
+  ).toString("base64");
+
+  const res = await fetch(`${a.host.replace(/\/$/, "")}/api/token/activate`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${jwt}` },
-    body: JSON.stringify(opts),
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${a.jwt}` },
+    body: JSON.stringify({ txSig: a.txSig, walletSignature: signature, leagues: a.leagues }),
   });
   if (!res.ok) throw new Error(`token/activate ${res.status}`);
-  const { apiToken } = (await res.json()) as { apiToken: string };
-  return apiToken;
+  const data: any = await res.json();
+  return data.token ?? data;
 }
 
-/** Convenience wrapper once you already have a completed subscription. */
-export async function authenticate(baseUrl: string, activate: ActivateOptions): Promise<TxlineAuth> {
-  const jwt = await startGuestSession(baseUrl);
-  const apiToken = await activateApiToken(baseUrl, jwt, activate);
-  return {
-    jwt,
-    apiToken,
-    headers: { Authorization: `Bearer ${jwt}`, "X-Api-Token": apiToken },
-  };
+/** Guest JWT + activation, given a completed subscription tx signature. */
+export async function authenticate(
+  host: string,
+  opts: { txSig: string; wallet: Keypair; leagues: number[]; jwt?: string },
+): Promise<TxlineAuth> {
+  const jwt = opts.jwt ?? (await startGuestSession(host));
+  const apiToken = await activateApiToken({ host, jwt, txSig: opts.txSig, wallet: opts.wallet, leagues: opts.leagues });
+  return { jwt, apiToken, headers: headersFor(jwt, apiToken) };
 }

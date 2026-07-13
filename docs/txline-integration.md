@@ -50,19 +50,21 @@ Team-level aggregates + game phase. Verified encodings we rely on:
 **Advancement predicate:** team A advances iff
 `Goals(A) [+ 5001 if shootout] > Goals(B) [+ 5002 if shootout]`, with phase `13` signalling a shootout decided tie. All team-level → all provable.
 
-### Settlement proof (`/api/scores/stat-validation` → `Txoracle.validateStat`)
+### Settlement proof (`/api/scores/stat-validation` → `Txoracle.validateStatV2`)
 
-**Program ids (Txoracle):** devnet `6pW64gN1s2uqjHkn1unFeEjAwJkPGHoppGvS715wyP2J` · mainnet `9ExbZjAapQww1vfcisDmrngPinHTEfpjYRWMunJgcKaA` (v1.5.5).
+**Program ids (Txoracle):** devnet `6pW64gN1s2uqjHkn1unFeEjAwJkPGHoppGvS715wyP2J` · mainnet `9ExbZjAapQww1vfcisDmrngPinHTEfpjYRWMunJgcKaA` (v1.5.5). The **devnet IDL is vendored** at `scripts/txline/idl/txoracle.json` (Apache-2.0, from `txodds/tx-on-chain`).
 
-**Endpoint:** `GET /api/scores/stat-validation?fixtureId=&seq=&statKey=` returns:
-`summary { fixtureId, updateStats { updateCount, minTimestamp, maxTimestamp }, eventStatsSubTreeRoot }`, `subTreeProof[]`, `mainTreeProof[]`, `statToProve`, `eventStatRoot`, `statProof[]` (+ `statToProve2`/`eventStatRoot2`/`statProof2` for two-stat). Proof nodes are `{ hash: hex32, isRightSibling: bool }`.
+**Endpoint:** `GET /api/scores/stat-validation?fixtureId=&seq=&statKeys=1,2` returns:
+`summary { fixtureId, updateStats { updateCount, minTimestamp, maxTimestamp }, eventStatsSubTreeRoot }`, `subTreeProof[]`, `mainTreeProof[]`, `eventStatRoot`, `statsToProve[]` (one `ScoreStat` per requested key), `statProofs[][]`. Proof nodes `{ hash, isRightSibling }` → `hash` mapped with `Array.from`.
 
-**Instruction:** `validateStat(ts: i64, fixtureSummary, fixtureProof: ProofNode[], mainTreeProof: ProofNode[], predicate, statA, statB?, op?) -> bool`
-- discriminator `[107, 197, 232, 90, 191, 136, 105, 185]` (there is also `validateStatV2`).
+**Instruction:** `validateStatV2(payload: StatValidationInput, strategy: NDimensionalStrategy) -> bool`, run via `.view()` (read-only simulation), ~1.4M CU.
+- `payload = { ts, fixtureSummary { fixtureId, updateStats, eventsSubTreeRoot }, fixtureProof, mainTreeProof, eventStatRoot, stats: [{ stat, statProof }] }`.
 - account: `dailyScoresMerkleRoots` = PDA `["daily_scores_roots", epochDay as u16 LE]`, `epochDay = floor(minTimestamp_ms / 86_400_000)`.
-- "did A advance?" = two-stat difference: `statA` (advancing team's goals+shootout), `statB` (opponent), `predicate = GreaterThan(0)`, `op = Subtract`.
+- `strategy` picks the predicate. **"Did A advance?"** = request the two goal stats (`statKeys=1,2`) and use a **binary** predicate: `{ binary: { indexA: 0, indexB: 1, op: { subtract: {} }, predicate: { threshold: 0, comparison: { greaterThan: {} } } } }` (goals A − goals B > 0). Single-stat: `{ single: { index, predicate } }`.
 
-**How Bracket Bond uses it (trustless):** the client builds the `validateStat` instruction from the Txoracle IDL (`scripts/txline/statValidation.ts` → `buildValidateStatIx`), and passes its data + accounts into `settle_round` (`Proof` mode). The program **relays the CPI and requires the returned `bool` to be `true`** via `get_return_data()` — so an unproven or false result cannot settle a round. (Docs also show an off-chain `.view()` for a read-only check; we enforce it on-chain instead.) The CPI costs ~1.4M CU → add a `ComputeBudget` instruction to the settle transaction.
+Helpers (`scripts/txline/statValidation.ts`): `loadTxoracle`, `fetchStatValidation`, `buildStatValidationInput`, `advancementStrategy`, `singleStatStrategy`, `buildValidateStatV2Ix`, `dailyScoresPda`. `scripts/txline/index.ts` is a runnable smoke test of the whole path.
+
+**How Bracket Bond uses it (trustless):** the client builds the `validateStatV2` instruction from the vendored IDL and passes its data + accounts into `settle_round` (`Proof` mode). The program **relays the CPI and requires the returned `bool` to be `true`** via `get_return_data()` — an unproven/false result reverts (`ProofFailed`). Add a `ComputeBudget` (~1.4M CU) to the settle tx.
 
 ## Known limitations (design-shaping)
 
@@ -84,7 +86,8 @@ Verified from the OpenAPI + soccer-feed docs:
 - API base: mainnet `https://txline.txodds.com`, devnet `https://txline-dev.txodds.com`.
 - `POST /auth/guest/start` → `{ token }` (JWT, 30-day). No body.
 - Free World-Cup tier: on-chain subscribe with `SERVICE_LEVEL_ID = 1` (60s delay, any net) or `12` (real-time, mainnet). No token purchase, no rate limits, commercial use allowed.
-- `POST /api/token/activate` (Bearer JWT) with `{ txSig, signature (base64 wallet sig), leagues[] }` → `{ apiToken }`.
+- On-chain `subscribe(serviceLevelId, weeks)` on the Txoracle program (Token-2022 ATA; level 1 = free) → `txSig`. Ported to `scripts/txline/subscribe.ts`.
+- `POST /api/token/activate` (Bearer JWT) with `{ txSig, walletSignature, leagues[] }`, where `walletSignature` = base64 nacl sig over `${txSig}:${leagues.join(",")}:${jwt}` → `{ token }`.
 - Every data request: `Authorization: Bearer <jwt>` + `X-Api-Token: <apiToken>`.
 - Snapshots: `GET /api/fixtures/snapshot?competitionId=`, `GET /api/odds/snapshot/{fixtureId}`, `GET /api/scores/snapshot/{fixtureId}`. Streams: `GET /api/odds/stream`, `GET /api/scores/stream` (SSE).
 
@@ -96,8 +99,13 @@ Verified from the OpenAPI + soccer-feed docs:
 - Multi-track: may enter multiple, but **win at most one prize**.
 - Provide judges a free, testable environment (our devnet deploy + `SETUP.md` cover this).
 
-## Still to confirm with TxLINE (Telegram `TxLINEChat`)
+## Resolved via `txodds/tx-on-chain` (2026-07-13)
 
-1. Exact SSE payload field names for `odds/stream` / `scores/stream` (our parsers use best-guess keys; historical scores are `{ seq, ts, gameState }`).
-2. The Txoracle **IDL JSON** (to load the program client-side for `buildValidateStatIx`).
-3. Daily-root publish cadence during the World Cup (affects settlement finality timing).
+TxLINE pointed us to the **`txodds/tx-on-chain`** examples repo (Apache-2.0). From it we now have:
+- The Txoracle **devnet IDL** (vendored) + the real `validateStatV2` / `subscribe` shapes.
+- The **auth + free-tier subscription** flow (guest JWT `token` → on-chain `subscribe(1, 4)` with a Token-2022 ATA → `/api/token/activate` signed over `${txSig}:${leagues}:${jwt}`), ported to `scripts/txline/{auth,subscribe}.ts`.
+- Endpoints: `/scores/stat-validation`, `/scores/historical/{id}`, `/odds|scores/stream`, `/fixtures/snapshot`.
+
+Still to confirm:
+1. Exact live SSE payload field names — the stream mostly heartbeats when idle, so develop against `/scores/historical` (`fetchHistoricalScores` helper).
+2. Daily-root publish cadence during the World Cup (settlement finality timing).

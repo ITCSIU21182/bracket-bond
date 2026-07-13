@@ -69,3 +69,20 @@ export function advancedParticipant(s: ScoreUpdate): 0 | 1 | null {
   if (b > a) return 1;
   return null;
 }
+
+/**
+ * Full historical score log for a fixture — the reliable way to learn the exact
+ * message shape. Note: the live `/scores/stream` mostly emits heartbeats when no
+ * match is close to running, so use this to develop against.
+ */
+export async function fetchHistoricalScores(
+  baseUrl: string,
+  auth: TxlineAuth,
+  fixtureId: number,
+): Promise<any[]> {
+  const res = await fetch(`${baseUrl.replace(/\/$/, "")}/api/scores/historical/${fixtureId}`, {
+    headers: auth.headers,
+  });
+  if (!res.ok) throw new Error(`scores/historical ${res.status}`);
+  return (await res.json()) as any[];
+}
