@@ -107,8 +107,9 @@ predicate (goals A − B > 0) evaluated.
 
 > **✅ Verified 2026-07-13** on real WC fixture **18213979** (Norway v England,
 > `game_finalised`, seq 1184): the full path ran and `validateStatV2` returned a
-> clean boolean. The differentiator works live. (`false` there = Norway didn't
-> outscore England — the predicate correctly reflected the real result.)
+> clean boolean. **Step B (full on-chain settle) also PASSED on devnet** —
+> `pnpm settle:proof` eliminated the losing outcome by proof; `settle_round` tx
+> `65jgF1VB5X6…XmZLGw`. The differentiator works live, on-chain, no human oracle.
 
 **Step B — enforce it on-chain (full loop):** after deploying Bracket Bond
 (`anchor deploy`), run:

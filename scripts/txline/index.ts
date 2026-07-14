@@ -18,6 +18,7 @@ import {
   singleStatStrategy,
 } from "./statValidation";
 import { discoverFinishedFixture } from "./discover";
+import { withRetry } from "./net";
 
 export * from "./types";
 export * from "./auth";
@@ -43,11 +44,10 @@ async function main() {
   const wallet = (provider.wallet as any).payer as Keypair;
 
   console.log("1/4 subscribing (free World Cup tier)…");
-  const txSig = await subscribeFreeTier(txoracle, wallet, provider.connection, {
-    tokenMint,
-    serviceLevelId: 1,
-    weeks: 4,
-  });
+  const txSig = await withRetry(
+    () => subscribeFreeTier(txoracle, wallet, provider.connection, { tokenMint, serviceLevelId: 1, weeks: 4 }),
+    { label: "subscribe", retries: 3 },
+  );
   console.log("    subscribed:", txSig);
 
   console.log("2/4 activating API token…");

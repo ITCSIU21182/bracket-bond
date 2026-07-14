@@ -6,6 +6,7 @@
 import * as anchor from "@coral-xyz/anchor";
 import { ComputeBudgetProgram, PublicKey, TransactionInstruction } from "@solana/web3.js";
 import { TxlineAuth } from "./auth";
+import { withRetry } from "./net";
 import txoracleIdl from "./idl/txoracle.json";
 
 const { BN } = anchor;
@@ -49,9 +50,11 @@ export async function fetchStatValidation(o: FetchOpts): Promise<StatValidationR
   const url =
     `${o.baseUrl.replace(/\/$/, "")}/api/scores/stat-validation` +
     `?fixtureId=${o.fixtureId}&seq=${o.seq}&statKeys=${keys}`;
-  const res = await fetch(url, { headers: o.auth.headers });
-  if (!res.ok) throw new Error(`stat-validation ${res.status}`);
-  return (await res.json()) as StatValidationResponse;
+  return withRetry(async () => {
+    const res = await fetch(url, { headers: o.auth.headers });
+    if (!res.ok) throw new Error(`stat-validation ${res.status}`);
+    return (await res.json()) as StatValidationResponse;
+  }, { label: "stat-validation" });
 }
 
 const mapProof = (nodes: ApiProofNode[]) =>

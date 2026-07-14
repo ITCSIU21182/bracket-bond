@@ -32,6 +32,7 @@ import {
 import { authenticate } from "./auth";
 import { subscribeFreeTier } from "./subscribe";
 import { discoverFinishedFixture } from "./discover";
+import { withRetry } from "./net";
 
 const PROOF = 1;
 
@@ -49,7 +50,10 @@ async function main() {
   const log = (s: string) => console.log(s);
 
   log("1) TxLINE subscribe + activate…");
-  const txSig = await subscribeFreeTier(txoracle, wallet, provider.connection, { tokenMint });
+  const txSig = await withRetry(
+    () => subscribeFreeTier(txoracle, wallet, provider.connection, { tokenMint }),
+    { label: "subscribe", retries: 3 },
+  );
   const auth = await authenticate(host, { txSig, wallet, leagues: [] });
 
   let fixtureId = Number(process.argv[2]);

@@ -73,9 +73,10 @@ submission, **P1** = makes it strong, **P2** = polish/nice-to-have.
 The technical core is verified live (Tier 0–2 + the Tier 3 proof path on a real WC
 match). What's left is the full loop + packaging:
 
-- [ ] **Full on-chain PROOF settle** — `pnpm settle:proof` eliminates a real
-      knockout outcome by proof, end to end, on devnet. _Accept:_ prints
-      `outcome N status = 1 (eliminated)`.
+- [x] **Full on-chain PROOF settle** — ✅ DONE on devnet: `pnpm settle:proof`
+      eliminated a real knockout outcome (Norway v England, fixture 18213979, P2
+      won 2-1) by cryptographic proof. `settle_round` tx
+      `65jgF1VB5X6PNg75dQvtzhHqU438s8n5TDG3QTSqevR4cUr75eEfqK9NWefYQETxVeYTqgJxzL3vcinuf2XmZLGw`.
 - [ ] **Public devnet deploy** of the program (needs devnet SOL). _Accept:_ a
       program id + a deployed market others can hit.
 - [ ] **Frontend live** on the deployed market (copy the built IDL to

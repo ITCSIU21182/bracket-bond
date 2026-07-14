@@ -7,6 +7,7 @@
 //    the `game_finalised` event.
 
 import { TxlineAuth } from "./auth";
+import { withRetry } from "./net";
 import { fetchHistoricalScores, finalSeq } from "./scoresStream";
 
 const MS_PER_HOUR = 3_600_000;
@@ -22,7 +23,7 @@ export async function discoverFinishedFixture(
   host: string,
   auth: TxlineAuth,
   nowMs: number,
-  hours = 24,
+  hours = 168, // WC matches can be several days back — scan a week by default
 ): Promise<DiscoveredFixture | null> {
   const api = `${host.replace(/\/$/, "")}/api`;
 
@@ -33,11 +34,13 @@ export async function discoverFinishedFixture(
 
     let items: any[];
     try {
-      const res = await fetch(`${api}/fixtures/updates/${epochDay}/${hourOfDay}`, { headers: auth.headers });
-      if (!res.ok) continue;
-      items = (await res.json()) as any[];
+      items = await withRetry(async () => {
+        const res = await fetch(`${api}/fixtures/updates/${epochDay}/${hourOfDay}`, { headers: auth.headers });
+        if (!res.ok) throw new Error(`fixtures/updates ${res.status}`);
+        return (await res.json()) as any[];
+      }, { retries: 2 });
     } catch {
-      continue;
+      continue; // transient after retries — skip this hour
     }
 
     for (const it of items ?? []) {
