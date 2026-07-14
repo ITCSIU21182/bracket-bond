@@ -1,0 +1,76 @@
+---
+title: Architecture
+description: The on-chain accounts, the instruction set, and the single-pot solvency model that keeps the vault honest.
+---
+
+Bracket Bond is one Anchor program. All collateral lives in a per-market vault PDA;
+each outcome tracks only its outstanding shares. The winning outcome's holders split
+the pot pro-rata, so redistribution is emergent and provably conservative.
+
+## Accounts
+
+| Account | Seeds | Holds |
+| --- | --- | --- |
+| `Config` | `["config"]` | authority, oracle authority, fee bps, `Txoracle` id, settlement mode |
+| `Market` | `["market", market_id]` | title, status, round, outcome count, total collateral, fees, winner |
+| `Outcome` | `["outcome", market, index]` | team id, status (`Alive`/`Eliminated`/`Won`), mark, shares outstanding |
+| `Vault` | `["vault", market]` | a `SystemAccount` PDA that custodies **all** market collateral (native SOL) |
+| `Position` | `["position", market, index, owner]` | one holder's shares in one outcome |
+
+<Callout type="info">
+  MVP collateral is **native SOL** (play-money on devnet), so solvency is a single
+  lamport balance. USDC/SPL is a straight swap — same instruction set, a token
+  vault in place of the SOL vault.
+</Callout>
+
+## Instructions
+
+| Instruction | Who | Effect |
+| --- | --- | --- |
+| `initialize` | deployer | create `Config` (fee, `Txoracle` id, settlement mode) |
+| `create_market` | authority | create `Market` + `Vault` |
+| `add_outcome` | authority | register a team as an outcome |
+| `update_mark` | oracle | write the latest TxLINE-derived implied probability (pricing only) |
+| `buy` | anyone | deposit SOL, mint `shares = lamports × MARK_SCALE / mark` |
+| `sell` | holder | exit at the mark, `payout = shares × mark`, **clamped to the pot** |
+| `settle_round` | oracle | eliminate an outcome — [proof-enforced](/docs/settlement) in `PROOF` mode |
+| `finalize` | oracle | mark the sole survivor `Won`, skim the fee, resolve the market |
+| `redeem` | winner | burn winning shares for a pro-rata slice of the pot |
+| `claim_fees` | authority | withdraw accrued protocol fees |
+
+## Pricing — an oracle mark, not an AMM
+
+`Outcome.mark` is an implied probability in `[0, 1]` scaled by `MARK_SCALE`
+(`0.42 → 420_000`). A keeper reads TxLINE's de-margined StablePrice, normalizes it,
+and writes it via `update_mark`. `buy` / `sell` price off the mark, so a position
+tracks the real match. **The mark is never used for settlement** — settlement uses
+the proven score.
+
+## Solvency
+
+<Callout type="warn">
+  **Invariant (holds after every instruction):**
+  `lamports(Vault) ≥ Σ Outcome.collateral`, and the sum of everything ever paid out
+  can never exceed everything ever deposited, minus fees.
+</Callout>
+
+- **buy** adds `L` lamports to the vault and mints shares. Conservative.
+- **sell** pays `shares × mark`, **clamped to the pot** — a late "bank-run" seller
+  may get less than mark, but the vault can never underpay.
+- **settle_round** moves an eliminated outcome's stake into the pot (no lamports
+  leave). Conservative by construction.
+- **redeem** pays winners strictly pro-rata of `total_collateral − fees`.
+
+No path pays out more than reserves; the test suite asserts this after every op.
+
+## Data flow (one round)
+
+```
+kickoff ─▶ keeper streams TxLINE odds ─▶ update_mark (loop) ─▶ marks move; users buy/sell
+full-time ▶ keeper fetches /scores/stat-validation (proof)
+          ▶ settle_round(proof) ─▶ CPI validate_stat ─▶ eliminate + redistribute
+final ────▶ finalize ─▶ Resolved ─▶ redeem
+```
+
+See [Settlement](/docs/settlement) for the proof mechanics and
+[TxLINE integration](/docs/txline) for the exact endpoints.

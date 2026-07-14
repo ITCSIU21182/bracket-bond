@@ -1,0 +1,74 @@
+---
+title: Bracket Bond
+description: A World Cup prediction market whose knockout rounds settle by a cryptographic proof of the real match data — anchored on Solana by TxLINE, with no human oracle.
+---
+
+Bracket Bond is one Solana program and a thin TxLINE client that compose into a
+proof-settled prediction market. You hold a position on a team's whole knockout
+run, watch it mark up and down from real odds, exit anytime — and each round is
+resolved by a Merkle proof of the actual result, not a vote.
+
+| Piece | Runs on | What it does |
+| --- | --- | --- |
+| `bracket_bond` program | Solana (Anchor) | market, collateral vault, buy / sell, **proof-settled** rounds, redeem |
+| TxLINE client (`scripts/txline`) | Node 20+ | subscribe, auth, odds / scores, builds the `validate_stat` CPI |
+| Frontend (`app`) | Browser | market UI — buy, watch marks, exit, settlement feed |
+
+<Callout type="info">
+  **Proof, not vote.** Polymarket settles when humans agree (UMA optimistic
+  oracle, with a dispute window). Bracket Bond settles when a Merkle proof of the
+  real result verifies on-chain via `Txoracle.validate_stat` — automatically, no
+  human in the loop, no dispute window. Collateral is native SOL (play-money on
+  devnet); the TxL token is used only to authorize data, never for wagering.
+</Callout>
+
+<Cards>
+  <Card title="Getting started" href="/docs/getting-started" description="Build, test, deploy to devnet, and prove a settlement." />
+  <Card title="Settlement" href="/docs/settlement" description="How a round resolves from a TxLINE Merkle proof — the differentiator." />
+  <Card title="Architecture" href="/docs/architecture" description="On-chain accounts, instructions, the single-pot solvency model." />
+  <Card title="TxLINE integration" href="/docs/txline" description="Exact endpoints, auth, the validateStatV2 flow." />
+</Cards>
+
+## Architecture
+
+One program, one verifiable data feed, three moving parts.
+
+<Mermaid chart={`
+flowchart LR
+  U["User / keeper"]
+  FE["Frontend (app)"]
+  REL["TxLINE client (scripts/txline)"]
+  BB["bracket_bond program"]
+  TX["Txoracle program<br/>(TxLINE, daily Merkle roots)"]
+  U -- buy / sell / redeem --> BB
+  FE -- reads / signs --> BB
+  REL -- "odds / scores / proof" --> BB
+  BB -- "CPI validate_stat" --> TX
+`} />
+
+The user's money only ever moves in `bracket_bond`. Settlement only ever accepts
+a proof that verifies against a root TxLINE published on Solana.
+
+## How a round settles
+
+1. **Buy** an outcome for a team at the current mark (implied probability from TxLINE odds).
+2. **Watch** it mark up/down live as the real match moves; **exit** anytime.
+3. **Each round**, a keeper fetches a stat proof from TxLINE and calls `settle_round`.
+4. The program **CPIs into `Txoracle.validate_stat`** and requires the returned
+   boolean to be `true` — an unproven result reverts. The losing outcome is
+   eliminated; its collateral forfeits to the pot.
+5. **Final** — the surviving outcome's holders redeem pro-rata, minus a protocol fee.
+
+## Where devnet is right now
+
+| Resource | Value |
+| --- | --- |
+| `bracket_bond` program | `EbYmsXdALmF4GHY5JQT2Rv5fqC2Nws2qFcnh4B1QXE3U` |
+| Txoracle program (TxLINE) | `6pW64gN1s2uqjHkn1unFeEjAwJkPGHoppGvS715wyP2J` |
+| Verified proof settlement (real WC match) | tx `65jgF1VB5X6PNg75dQvtzhHqU438s8n5TDG3QTSqevR4cUr75eEfqK9NWefYQETxVeYTqgJxzL3vcinuf2XmZLGw` |
+| TxLINE API (devnet) | `https://txline-dev.txodds.com` |
+
+<Callout type="warn">
+  Devnet + play-money for the hackathon submission. The USDC/mainnet path is a
+  straight collateral swap (documented, not deployed) — see [Architecture](/docs/architecture).
+</Callout>

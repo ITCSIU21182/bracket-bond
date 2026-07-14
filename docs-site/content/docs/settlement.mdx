@@ -1,0 +1,104 @@
+---
+title: Settlement
+description: How a knockout round resolves from a TxLINE Merkle proof — verified on-chain, with no human oracle. This is the differentiator.
+---
+
+Every prediction market has the same hard problem: **who decides the result?**
+Polymarket answers with people — a proposer, a dispute window, UMA voters. That is
+trust-*minimized*, not trust-*less*. For an objective sports outcome ("did Brazil
+advance?"), a math-proven settlement is strictly better than a vote.
+
+Bracket Bond settles on a **cryptographic proof of the actual match data**, anchored
+on Solana by TxLINE, and enforced inside the program.
+
+## The trust rule
+
+<Callout type="info">
+  One rule decides where each data point comes from: **does money or the official
+  result depend on it?** Yes → TxLINE only. No → any API is fine. Odds, scores, and
+  the settlement proof are TxLINE; flags and cosmetics can be anything.
+</Callout>
+
+Markets are therefore limited to **objective, TxLINE-provable outcomes** —
+advancement, goals, cards, corners, shootouts. A subjective market ("was that VAR
+call correct?") would need an oracle and would dissolve the differentiator.
+
+## How it works
+
+TxLINE hashes every scores update into a Merkle tree and publishes a **daily root**
+to Solana (a PDA under the `Txoracle` program). Anyone can later prove a specific
+stat was published and unaltered.
+
+<Mermaid chart={`
+sequenceDiagram
+  participant K as Keeper
+  participant T as TxLINE API
+  participant BB as bracket_bond
+  participant TX as Txoracle (Solana)
+  K->>T: GET /scores/stat-validation (fixture, seq, statKeys=1,2)
+  T-->>K: stat + Merkle proof
+  K->>BB: settle_round(eliminate=loser, proof)
+  BB->>TX: CPI validate_stat(payload, strategy)
+  TX-->>BB: return bool (proof verified vs daily root)
+  BB->>BB: require bool == true, else revert (ProofFailed)
+  BB->>BB: mark loser Eliminated · forfeit collateral to the pot
+`} />
+
+The program does not trust the keeper. `settle_round` **relays the validate call
+as a CPI and reads its return value** — settlement applies only if the proof
+verifies:
+
+```rust
+invoke(&validate_ix, &accounts)?;                 // Txoracle.validate_stat
+let (prog, data) = get_return_data().ok_or(ProofFailed)?;
+require_keys_eq!(prog, config.txoracle_program, BadOracleProgram);
+require!(data.first() == Some(&1u8), ProofFailed); // bool must be true
+```
+
+## The advancement predicate
+
+"Did participant A advance?" is a two-stat difference. The client requests both
+goal stats (`statKeys=1,2`) and asks the validator for `stat[A] − stat[B] > 0`:
+
+```ts
+const strategy = {
+  geometricTargets: [],
+  distancePredicate: null,
+  discretePredicates: [
+    { binary: { indexA: 0, indexB: 1, op: { subtract: {} },
+                predicate: { threshold: 0, comparison: { greaterThan: {} } } } },
+  ],
+};
+const ix = await buildValidateStatV2Ix(txoracle, proof, strategy);
+```
+
+The `settle:proof` driver lets the proof itself pick the winner: it views the
+predicate for A-vs-B and B-vs-A, then eliminates whichever side the proof rejects.
+
+## Verified live
+
+<Callout type="info">
+  **2026-07-13, devnet.** `settle_round` eliminated a real knockout outcome —
+  Norway v England (fixture `18213979`, `game_finalised`, seq `1184`) — by
+  cryptographic proof. Transaction:
+  `65jgF1VB5X6PNg75dQvtzhHqU438s8n5TDG3QTSqevR4cUr75eEfqK9NWefYQETxVeYTqgJxzL3vcinuf2XmZLGw`.
+  No human oracle, no dispute window.
+</Callout>
+
+## Modes
+
+| `settlement_mode` | Behaviour | Use |
+| --- | --- | --- |
+| `PROOF` | `settle_round` requires a `validate_stat` CPI to return `true` | Production, live TxLINE |
+| `TRUSTED_ORACLE` | The oracle authority signs the result directly | Local tests, the replay demo |
+
+The same `settle_round` code path runs the proof CPI in `PROOF` mode; the mode is
+a config flag, not a fork in the logic.
+
+## Known limitation
+
+`settle_round` requires the relayed proof to return `true` but does **not yet bind
+that proof to the specific outcome/fixture** being eliminated — the oracle
+authority pairs them (the `settle:proof` driver does this correctly). Binding the
+proof's fixture + predicate to the market outcome on-chain is the next hardening
+step.

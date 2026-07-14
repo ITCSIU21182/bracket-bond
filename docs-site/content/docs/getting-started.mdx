@@ -1,0 +1,89 @@
+---
+title: Getting started
+description: Build the program, run the solvency test, deploy to devnet, and prove a real settlement end to end.
+---
+
+## Requirements
+
+- **Rust 1.79+**, **Solana / Agave CLI 4.0.2** (or ≥1.18), **Anchor 0.31**.
+- **Node 20+** and **pnpm 9+**.
+- A funded **Solana devnet** keypair for the on-chain steps.
+
+<Callout type="info">
+  `Anchor.toml` pins `solana_version = "4.0.2"` so `anchor build` uses a
+  platform-tools new enough for the edition-2024 crates in `Cargo.lock`. On
+  Windows, build inside WSL2.
+</Callout>
+
+## Install
+
+```bash
+pnpm install            # root — also copies the fixed program keypair into target/deploy
+pnpm --dir app install  # frontend
+```
+
+The program id is **fixed** (`EbYmsXdALmF4GHY5JQT2Rv5fqC2Nws2qFcnh4B1QXE3U`) via a
+committed keypair in `keys/`. A `postinstall` hook drops it into `target/deploy`,
+so a fresh clone builds a consistent id — no `anchor keys sync`.
+
+## Build & test
+
+```bash
+anchor build            # → target/idl/bracket_bond.json
+anchor test             # boots a local validator, runs the suite
+# ✓ runs a full market end-to-end and stays solvent
+# ✓ lets a holder exit early at the mark and stays solvent
+```
+
+The suite asserts the [solvency invariant](/docs/architecture#solvency) after
+every op: the vault never pays out more than it holds.
+
+## Deploy to devnet
+
+```bash
+solana config set --url devnet
+solana airdrop 2                              # faucet is rate-limited; retry or use a web faucet
+anchor deploy --provider.cluster devnet       # program id EbYmsX… (~2.5 SOL)
+```
+
+## Prove a settlement
+
+Two turnkey scripts drive the whole TxLINE path. Both auto-discover a finished
+World Cup fixture and need a funded `ANCHOR_WALLET`.
+
+```bash
+# 1) Prove the proof path (read-only): validate a real match's result on-chain
+pnpm txline:demo
+# subscribing ✓ → activating ✓ → discovered fixture 18213979 @ seq 1184
+# validateStatV2 → false        (a clean boolean = the Merkle proof verified)
+
+# 2) Full on-chain settlement: eliminate a losing outcome by proof
+pnpm settle:proof
+# participant 1 advanced → eliminate outcome 0
+# settle_round tx: 65jgF1VB5X6…XmZLGw
+# outcome 0 status = 1 (eliminated)
+# ✅ eliminated by cryptographic proof, on-chain, no human oracle
+```
+
+<Callout type="warn">
+  `settle:proof` requires the program's `Config` to be in **PROOF** mode — use a
+  fresh deploy (a prior `anchor test` initializes `Config` as `TRUSTED_ORACLE`
+  on that ledger, which skips the CPI).
+</Callout>
+
+## Replay demo (no live match needed)
+
+Matches end before judging, so the demo runs from a cached run:
+
+```bash
+pnpm replay
+# === Quarter-finals ===  BRA 0.40 → 0.47 … ⚑ settled by proof → ESP eliminated
+# ↔ mid-tournament EXIT: sold half at the live mark → +0.186 SOL (held the rest)
+# • redeemed winning position → +0.308 SOL
+```
+
+<Cards>
+  <Card title="Settlement" href="/docs/settlement" description="The proof-settled resolution flow in detail." />
+  <Card title="Architecture" href="/docs/architecture" description="Accounts, instructions, solvency." />
+  <Card title="TxLINE integration" href="/docs/txline" description="Endpoints, auth, validateStatV2." />
+</Cards>

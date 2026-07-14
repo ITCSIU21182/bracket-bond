@@ -1,0 +1,85 @@
+---
+title: TxLINE integration
+description: The exact TxLINE endpoints Bracket Bond uses, the free World Cup auth flow, and the validateStatV2 proof call — verified live on devnet.
+---
+
+TxLINE is a verifiable sports-data layer: real-time scores, events, and consensus
+odds, each update cryptographically signed and anchored on Solana. Bracket Bond
+consumes it as both the **pricing signal** and the **settlement source of truth**.
+
+## Endpoints used
+
+| Endpoint | Purpose in Bracket Bond |
+| --- | --- |
+| `POST /auth/guest/start` | guest JWT (`token`, 30-day) |
+| `POST /api/token/activate` | activate the API token after the on-chain subscription |
+| `/api/odds/stream` (SSE) | live StablePrice odds → the outcome **mark** |
+| `/api/scores/stream` (SSE) | live scores / game state |
+| `/api/scores/historical/{id}` | full score log (SSE) — used to find the settle `seq` |
+| `/api/scores/stat-validation` | the **stat + Merkle proof** used to settle a round |
+| `/api/fixtures/updates/{epochDay}/{hour}` | discover finished fixtures (`GameState === 3`) |
+| on-chain `Txoracle.subscribe` / `validate_stat` | data authorization + trustless verification |
+
+<Callout type="info">
+  **TxL is data-only.** The TxL credit token authorizes data access; it is never
+  used for staking or wagering. Bracket Bond escrows **native SOL** and settles
+  payouts in SOL — a different asset, per the track rules.
+</Callout>
+
+## Free World Cup tier
+
+Service level 1 (60-second delay, any network) is free — no token purchase, no
+rate limits. Getting a working API token is a four-step flow, wrapped in
+`scripts/txline/{subscribe,auth}.ts`:
+
+```ts
+const jwt     = await startGuestSession(host);                     // POST /auth/guest/start → { token }
+const txSig   = await subscribeFreeTier(txoracle, wallet, conn,    // on-chain subscribe(1, 4 weeks)
+                  { tokenMint });                                  //   Token-2022 ATA, service level 1
+const apiToken = await activateApiToken({ host, jwt, txSig,        // POST /api/token/activate
+                  wallet, leagues: [] });                          //   signs `${txSig}:${leagues}:${jwt}`
+```
+
+<Callout type="warn">
+  `/api/token/activate` returns a **plain-text** token, not JSON — read it with
+  `res.text()`, not `res.json()`. The dev host is intermittently flaky, so every
+  call is wrapped in a small retry-with-backoff (`scripts/txline/net.ts`).
+</Callout>
+
+## The proof call
+
+`/api/scores/stat-validation?fixtureId=&seq=&statKeys=1,2` returns a `summary`, the
+`subTreeProof` / `mainTreeProof`, and per-stat `statsToProve` + `statProofs`. The
+client maps those into `validateStatV2(payload, strategy)` against the
+`daily_scores_roots` PDA (`epochDay` as a u16 LE seed):
+
+```ts
+const proof = await fetchStatValidation({ baseUrl: host, auth, fixtureId, seq, statKeys: [1, 2] });
+const ix    = await buildValidateStatV2Ix(txoracle, proof, advancementStrategy(0, 1));
+// relay through settle_round, or .view() it for a read-only boolean
+```
+
+See [Settlement](/docs/settlement) for how the program enforces the returned
+boolean on-chain.
+
+## What we hit
+
+Genuine friction, surfaced by building against the live feed:
+
+- `/api/token/activate` returns plain text, not JSON — a `res.json()` throws before
+  any fallback runs.
+- The dev host times out frequently on ~1 MB payloads; without retries a single
+  `ETIMEDOUT` fails a whole run.
+- `GameState === 3` marks a **finished** fixture on `/fixtures/updates` — distinct
+  from the scores-stream phase codes `5 / 10 / 13`, which is easy to conflate.
+- `/api/scores/historical` is SSE (`data:` lines), not a JSON array; the settle
+  `seq` is the `game_finalised` event's `Seq`.
+- The Txoracle IDL lives in the [`txodds/tx-on-chain`](https://github.com/txodds/tx-on-chain)
+  examples — vendored here at `scripts/txline/idl/txoracle.json` (Apache-2.0).
+
+## What we liked
+
+The verifiability primitive is the whole product. Being able to `validate_stat`
+a real match result on-chain — and get a clean boolean back — meant settlement
+needed **no trusted oracle of our own**. That is exactly what a prediction market
+has always been missing.
