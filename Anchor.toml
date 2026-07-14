@@ -10,10 +10,10 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-bracket_bond = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
+bracket_bond = "EbYmsXdALmF4GHY5JQT2Rv5fqC2Nws2qFcnh4B1QXE3U"
 
 [programs.devnet]
-bracket_bond = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
+bracket_bond = "EbYmsXdALmF4GHY5JQT2Rv5fqC2Nws2qFcnh4B1QXE3U"
 
 [registry]
 url = "https://api.apr.dev"

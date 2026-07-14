@@ -4,6 +4,7 @@
   "description": "A proof-settled World Cup prediction market on Solana",
   "license": "MIT",
   "scripts": {
+    "postinstall": "mkdir -p target/deploy && cp keys/bracket_bond-keypair.json target/deploy/bracket_bond-keypair.json 2>/dev/null || true",
     "replay": "tsx scripts/replay/replay.ts",
     "txline:demo": "tsx scripts/txline/index.ts",
     "test": "anchor test",

@@ -18,7 +18,7 @@ pub mod state;
 use errors::BracketError;
 use state::*;
 
-declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
+declare_id!("EbYmsXdALmF4GHY5JQT2Rv5fqC2Nws2qFcnh4B1QXE3U");
 
 #[program]
 pub mod bracket_bond {

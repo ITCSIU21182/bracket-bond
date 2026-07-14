@@ -27,15 +27,13 @@ pnpm install            # root: anchor client, web3.js, test tooling
 cd app && pnpm install && cd ..   # frontend
 ```
 
-## 3. Program id / keypair
+## 3. Program id (fixed)
 
-The program id in `Anchor.toml` and `declare_id!` is a placeholder. Generate your
-own and sync:
-
-```bash
-anchor keys sync        # writes the new id into Anchor.toml + lib.rs
-# then set BRACKET_BOND_PROGRAM_ID in .env to match
-```
+The program id is **fixed** (`EbYmsXdALmF4GHY5JQT2Rv5fqC2Nws2qFcnh4B1QXE3U`) via a
+committed keypair in `keys/`. The root `postinstall` copies it into `target/deploy/`
+so `anchor build` uses it — **no `anchor keys sync` needed**. (For your own deploy,
+replace `keys/bracket_bond-keypair.json`, then set the new pubkey in `Anchor.toml`
++ `declare_id!` + `.env`. See the security note in `keys/README.md`.)
 
 ## 4. Build
 

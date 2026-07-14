@@ -32,7 +32,7 @@ export function loadProgram(): { program: anchor.Program; provider: anchor.Ancho
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
   const programId = new PublicKey(
-    process.env.BRACKET_BOND_PROGRAM_ID ?? "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS",
+    process.env.BRACKET_BOND_PROGRAM_ID ?? "EbYmsXdALmF4GHY5JQT2Rv5fqC2Nws2qFcnh4B1QXE3U",
   );
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const idl = require("../../target/idl/bracket_bond.json");

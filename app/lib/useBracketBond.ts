@@ -7,7 +7,7 @@ import { PublicKey } from "@solana/web3.js";
 import { BracketBondClient, MarketView, OutcomeView } from "./bracketBond";
 
 const PROGRAM_ID = new PublicKey(
-  process.env.NEXT_PUBLIC_PROGRAM_ID ?? "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS",
+  process.env.NEXT_PUBLIC_PROGRAM_ID ?? "EbYmsXdALmF4GHY5JQT2Rv5fqC2Nws2qFcnh4B1QXE3U",
 );
 
 /**

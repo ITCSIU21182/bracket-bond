@@ -17,7 +17,7 @@ Set the program id + RPC in `.env.local`:
 
 ```
 NEXT_PUBLIC_RPC_URL=https://api.devnet.solana.com
-NEXT_PUBLIC_PROGRAM_ID=Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS
+NEXT_PUBLIC_PROGRAM_ID=EbYmsXdALmF4GHY5JQT2Rv5fqC2Nws2qFcnh4B1QXE3U
 ```
 
 ## Screens (intended)

@@ -31,8 +31,7 @@ tsc prints nothing). **Fail signal:** any `error[...]` / `error TS...`.
 ## Tier 1 — Program build + functional test (localnet, offline)
 
 ```bash
-anchor keys sync        # replace placeholder program id
-anchor build            # produces target/idl/bracket_bond.json
+anchor build            # uses the fixed keypair (via postinstall); makes target/idl/bracket_bond.json
 anchor test             # boots a local validator + runs tests/bracket-bond.ts
 ```
 
@@ -47,12 +46,12 @@ This exercises the **full core feature set** in `TRUSTED_ORACLE` mode:
 - the winner's payout ≈ pool − fee (loser's stake forfeited to the pot),
 - the vault never underpays.
 
-**Common fail:** `DeclaredProgramIdMismatch (4100)` → the program id is not
-identical in all three places. After `anchor keys sync`, confirm `declare_id!`
-(in `lib.rs`), `[programs.localnet]`/`[programs.devnet]` (in `Anchor.toml`), and
-the deploy keypair all share the **same** pubkey; if not, set them equal and
-`anchor build` again. `lock file version 4` / edition-2024 build errors → use the
-pinned Agave 4.0.2 (`Anchor.toml [toolchain] solana_version`).
+**Common fail:** `DeclaredProgramIdMismatch (4100)` → a stale keypair in
+`target/deploy/` from an earlier run. The id is fixed via
+`keys/bracket_bond-keypair.json` (copied by `postinstall`); if it mismatches, run
+`cp keys/bracket_bond-keypair.json target/deploy/` then `anchor build` again.
+`lock file version 4` / edition-2024 build errors → use the pinned Agave 4.0.2
+(`Anchor.toml [toolchain] solana_version`).
 
 ---
 
