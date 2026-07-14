@@ -1,27 +1,37 @@
-# Bracket Bond — docs
+# Bracket Bond — docs site
 
-Professional technical documentation for Bracket Bond, written as **Fumadocs**
-MDX content (styled after MystenLabs' WalrusStreamKit docs).
+A runnable [Fumadocs](https://fumadocs.dev) (Next.js) documentation site, styled
+after MystenLabs' WalrusStreamKit docs.
 
-```
-content/docs/
-├── index.mdx           # what it is · component table · architecture · devnet resources
-├── getting-started.mdx # build · test · deploy · prove a settlement
-├── settlement.mdx      # the differentiator: proof-settled resolution (validate_stat CPI)
-├── architecture.mdx    # accounts · instructions · solvency model
-├── txline.mdx          # exact endpoints · auth · validateStatV2 · API feedback
-└── meta.json           # nav order
+## Run
+
+```bash
+cd docs-site
+pnpm install         # postinstall generates .source/ from content/docs
+pnpm dev             # → http://localhost:3002  (redirects to /docs)
 ```
 
-## Rendering
+`pnpm build && pnpm start` for a production build.
 
-The pages use Fumadocs MDX components (`<Callout>`, `<Cards>` / `<Card>`,
-`<Mermaid>`). To serve them, drop `content/docs` into a
-[Fumadocs](https://fumadocs.dev) Next.js app (`fumadocs-ui` + `fumadocs-mdx`), or
-read them as MDX. Tables, code blocks, and Mermaid diagrams also render on GitHub.
+## Layout
+
+```
+content/docs/          # the pages (MDX + meta.json) — the actual documentation
+├── index.mdx          # overview · component table · architecture · devnet resources
+├── getting-started.mdx
+├── settlement.mdx     # the proof-settled differentiator
+├── architecture.mdx
+└── txline.mdx         # endpoints · auth · validateStatV2 · references · API feedback
+app/                   # Next.js app router (root → /docs)
+components/            # Mermaid diagram component
+lib/                   # Fumadocs source loader + layout options
+```
+
+Components in use: `<Callout>`, `<Cards>` / `<Card>` (from `fumadocs-ui`) and
+`<Mermaid>` (local). Tables, code, and Mermaid also render on GitHub.
 
 ## For the hackathon submission
 
-- **Technical documentation** → `index.mdx` (overview) + `architecture.mdx`.
-- **TxLINE endpoints used** → the table in `txline.mdx`.
+- **Technical documentation** → `content/docs/index.mdx` + `architecture.mdx`.
+- **TxLINE endpoints used** → the table + References in `content/docs/txline.mdx`.
 - **API feedback** → `txline.mdx` § *What we hit* / *What we liked*.

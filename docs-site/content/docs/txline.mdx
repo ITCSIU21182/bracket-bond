@@ -83,3 +83,23 @@ The verifiability primitive is the whole product. Being able to `validate_stat`
 a real match result on-chain — and get a clean boolean back — meant settlement
 needed **no trusted oracle of our own**. That is exactly what a prediction market
 has always been missing.
+
+## References
+
+TxLINE / TxODDS documentation this project relied on:
+
+- [Quickstart](https://txline.txodds.com/documentation/quickstart) · [World Cup free tier](https://txline.txodds.com/documentation/worldcup) · [Subscription tiers](https://txline.txodds.com/documentation/subscription-tiers)
+- Odds: [overview / StablePrice](https://txline.txodds.com/documentation/odds/overview) · [coverage](https://txline.txodds.com/documentation/odds/odds-coverage)
+- Scores: [soccer feed](https://txline.txodds.com/documentation/scores/soccer-feed) (goals, cards, corners, shootout `5001/5002`, phases `5/10/13`)
+- Programs: [addresses](https://txline.txodds.com/documentation/programs/addresses) · [devnet](https://txline.txodds.com/documentation/programs/devnet) · [mainnet](https://txline.txodds.com/documentation/programs/mainnet)
+- Examples: [on-chain validation](https://txline.txodds.com/documentation/examples/onchain-validation) · [fetching snapshots](https://txline.txodds.com/documentation/examples/fetching-snapshots) · [streaming data](https://txline.txodds.com/documentation/examples/streaming-data)
+- API: [OpenAPI spec](https://txline.txodds.com/docs/docs.yaml) · [guest session auth](https://txline-docs.txodds.com/api-reference/authentication/start-a-new-guest-session) · [docs index](https://txline-docs.txodds.com/llms.txt)
+- Legal: [hackathon terms](https://txline-docs.txodds.com/documentation/legal/hackathon-terms)
+
+On-chain reference implementation (Apache-2.0), which we ported and vendored from:
+
+- [`txodds/tx-on-chain`](https://github.com/txodds/tx-on-chain) — the Txoracle IDL + devnet examples
+- `examples/devnet/common/users.ts` — the subscribe + activation flow (→ our `subscribe.ts` / `auth.ts`)
+- `examples/devnet/scripts/subscription_scores_v2.ts`, `subscription_scores_1stat.ts` — `validateStatV2` payload + strategy shapes (→ our `statValidation.ts`)
+- `examples/devnet/scripts/fixture_validation_view_only.ts`, `historical_scores.ts` — snapshot / historical patterns (→ our `discover.ts`)
+- `examples/devnet/idl/txoracle.json` — vendored to `scripts/txline/idl/txoracle.json` (see its `NOTICE.md`)

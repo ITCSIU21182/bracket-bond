@@ -1,0 +1,15 @@
+@import 'tailwindcss';
+@import 'fumadocs-ui/css/neutral.css';
+@import 'fumadocs-ui/css/preset.css';
+
+/* Bracket Bond brand: green signal on a dark-first canvas. */
+:root {
+  --color-fd-primary: #1f9d55;
+}
+.dark {
+  --color-fd-primary: #37d67a;
+}
+
+html {
+  scrollbar-gutter: stable;
+}
