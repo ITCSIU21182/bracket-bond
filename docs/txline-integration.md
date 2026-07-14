@@ -105,6 +105,7 @@ TxLINE pointed us to the **`txodds/tx-on-chain`** examples repo (Apache-2.0). Fr
 - The Txoracle **devnet IDL** (vendored) + the real `validateStatV2` / `subscribe` shapes.
 - The **auth + free-tier subscription** flow (guest JWT `token` → on-chain `subscribe(1, 4)` with a Token-2022 ATA → `/api/token/activate` signed over `${txSig}:${leagues}:${jwt}`), ported to `scripts/txline/{auth,subscribe}.ts`.
 - Endpoints: `/scores/stat-validation`, `/scores/historical/{id}`, `/odds|scores/stream`, `/fixtures/snapshot`.
+- **Discovery (verified live):** `/fixtures/updates/{epochDay}/{hourOfDay}` lists fixtures — a **finished** match has `GameState === 3` (distinct from the scores-stream phase codes `5/10/13`). `/scores/historical/{id}` is **SSE** (`data:` lines), not a JSON array; the settle `seq` is the `game_finalised` event's `Seq`. Automated in `scripts/txline/discover.ts`; `pnpm txline:demo` uses it when no args are given. **Verified 2026-07-13** end-to-end on WC fixture 18213979 — `validateStatV2` returned a clean boolean.
 
 Still to confirm:
 1. Exact live SSE payload field names — the stream mostly heartbeats when idle, so develop against `/scores/historical` (`fetchHistoricalScores` helper).

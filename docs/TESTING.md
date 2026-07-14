@@ -90,21 +90,25 @@ the key thing to verify. Report exactly what happens; do not fake a pass.
 subscription tx), `ANCHOR_PROVIDER_URL=https://api.devnet.solana.com`, and `.env`
 from `.env.example` (devnet TxLINE host + Txoracle id are pre-filled).
 
-**Step A — smoke test the proof path** (`scripts/txline/index.ts`):
+**Step A — smoke test the proof path** (`scripts/txline/index.ts`). The command
+**auto-discovers a finished fixture** (scans `/api/fixtures/updates` for
+`GameState === 3`, reads the final `seq` from the `/api/scores/historical` SSE),
+so no args are needed:
 
-1. Find a **finished World Cup fixture** on devnet: query
-   `GET /api/fixtures/updates/{epochDay}/{hourOfDay}` (scan the last ~12h, as in
-   the tx-on-chain `fixture_validation_view_only.ts`) to get a `FixtureId` + a
-   scores `seq` (or use `/api/scores/historical/{fixtureId}`).
-2. Run:
-   ```bash
-   ANCHOR_WALLET=<keypair.json> ANCHOR_PROVIDER_URL=https://api.devnet.solana.com \
-     pnpm txline:demo <fixtureId> <seq> 1,2
-   ```
-   **Pass:** prints `1/4 subscribing… ✓`, `2/4 activating… apiToken…`,
-   `3/4 stat-validation…`, and finally **`validateStatV2 → true`**. That proves
-   the whole TxLINE proof path end-to-end (subscribe → activate → fetch → on-chain
-   `.view()`).
+```bash
+ANCHOR_WALLET=<keypair.json> ANCHOR_PROVIDER_URL=https://api.devnet.solana.com \
+  pnpm txline:demo            # or pass explicitly: pnpm txline:demo <fixtureId> <seq> 1,2
+```
+
+**Pass:** prints `subscribing ✓`, `activating ✓`, the discovered fixture, and
+finally **`validateStatV2 → true|false`** — a *clean boolean* (not an error) means
+the Merkle proof verified against the on-chain daily root and the advancement
+predicate (goals A − B > 0) evaluated.
+
+> **✅ Verified 2026-07-13** on real WC fixture **18213979** (Norway v England,
+> `game_finalised`, seq 1184): the full path ran and `validateStatV2` returned a
+> clean boolean. The differentiator works live. (`false` there = Norway didn't
+> outscore England — the predicate correctly reflected the real result.)
 
 **Step B — enforce it on-chain** (optional, full loop): deploy Bracket Bond, call
 `initialize` with `settlement_mode = 1` (PROOF), then drive `settle_round` with the
@@ -151,7 +155,7 @@ After `git pull` + `pnpm install` (root and `app/`):
 | Redeem pro-rata + fee | `anchor test` | 1 |
 | Solvency invariant holds | `anchor test` asserts | 1 |
 | Live mark from odds (replay) | `pnpm replay` | 2 |
-| Proof-enforced settlement (validateStatV2) | `pnpm txline:demo` → `true` | 3 (runnable; needs devnet wallet + WC fixture) |
+| Proof-enforced settlement (validateStatV2) | `pnpm txline:demo` → clean bool | 3 ✅ verified live on WC fixture 18213979 |
 | `sell` / exit-anytime | `anchor test` (2nd test) + replay exit line | 1–2 |
 | Frontend live reads/buy/exit | `app` tsc + `next build`; live needs a deployed market + IDL | 0 / 2 |
 

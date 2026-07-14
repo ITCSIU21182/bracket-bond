@@ -17,6 +17,7 @@ import {
   advancementStrategy,
   singleStatStrategy,
 } from "./statValidation";
+import { discoverFinishedFixture } from "./discover";
 
 export * from "./types";
 export * from "./auth";
@@ -25,19 +26,16 @@ export * from "./oddsStream";
 export * from "./scoresStream";
 export * from "./statValidation";
 export * from "./subscribe";
+export * from "./discover";
 
 async function main() {
   const host = process.env.TXLINE_BASE_URL ?? "https://txline-dev.txodds.com";
   const tokenMint = new PublicKey(
     process.env.TXLINE_TOKEN_MINT ?? "4Zao8ocPhmMgq7PdsYWyxvqySMGx7xb9cMftPMkEokRG",
   );
-  const fixtureId = Number(process.argv[2]);
-  const seq = Number(process.argv[3]);
+  const argFixture = Number(process.argv[2]);
+  const argSeq = Number(process.argv[3]);
   const statKeys = (process.argv[4] ?? "1,2").split(",").map(Number);
-  if (!fixtureId || !seq) {
-    console.error("usage: pnpm txline:demo <fixtureId> <seq> [statKeys=1,2]");
-    process.exit(1);
-  }
 
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
@@ -55,6 +53,20 @@ async function main() {
   console.log("2/4 activating API token…");
   const auth = await authenticate(host, { txSig, wallet, leagues: [] });
   console.log("    apiToken:", auth.apiToken.slice(0, 10) + "…");
+
+  let fixtureId = argFixture;
+  let seq = argSeq;
+  if (!fixtureId || !seq) {
+    console.log("    no <fixtureId> <seq> given — discovering a finished match…");
+    const found = await discoverFinishedFixture(host, auth, Date.now());
+    if (!found) {
+      console.error("no finished fixture found in the last 24h — pass <fixtureId> <seq> explicitly");
+      process.exit(1);
+    }
+    fixtureId = found.fixtureId;
+    seq = found.seq;
+    console.log(`    discovered fixture ${fixtureId} @ seq ${seq}`);
+  }
 
   console.log("3/4 fetching stat-validation proof…");
   const val = await fetchStatValidation({ baseUrl: host, auth, fixtureId, seq, statKeys });

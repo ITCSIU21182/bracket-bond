@@ -24,8 +24,9 @@ export function headersFor(jwt: string, apiToken: string): Record<string, string
 export async function startGuestSession(host: string): Promise<string> {
   const res = await fetch(`${host.replace(/\/$/, "")}/auth/guest/start`, { method: "POST" });
   if (!res.ok) throw new Error(`guest/start ${res.status}`);
-  const { token } = (await res.json()) as { token: string };
-  return token;
+  const d: any = await res.json();
+  return d.token ?? d.jwt ?? d; // tolerate {token}/{jwt}/raw string
+
 }
 
 export interface ActivateArgs {
@@ -53,7 +54,7 @@ export async function activateApiToken(a: ActivateArgs): Promise<string> {
   });
   if (!res.ok) throw new Error(`token/activate ${res.status}`);
   const data: any = await res.json();
-  return data.token ?? data;
+  return data.token ?? data.apiToken ?? data; // tolerate {token}/{apiToken}/raw string
 }
 
 /** Guest JWT + activation, given a completed subscription tx signature. */

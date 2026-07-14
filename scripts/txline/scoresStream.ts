@@ -79,10 +79,41 @@ export async function fetchHistoricalScores(
   baseUrl: string,
   auth: TxlineAuth,
   fixtureId: number,
+  retries = 3,
 ): Promise<any[]> {
-  const res = await fetch(`${baseUrl.replace(/\/$/, "")}/api/scores/historical/${fixtureId}`, {
-    headers: auth.headers,
-  });
-  if (!res.ok) throw new Error(`scores/historical ${res.status}`);
-  return (await res.json()) as any[];
+  const url = `${baseUrl.replace(/\/$/, "")}/api/scores/historical/${fixtureId}`;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      const res = await fetch(url, { headers: auth.headers });
+      if (!res.ok) throw new Error(`scores/historical ${res.status}`);
+      // Response is SSE ("data: {…}" lines), not a JSON array — parse the events.
+      return parseSseEvents(await res.text());
+    } catch (e) {
+      if (attempt >= retries) throw e; // ~1MB payloads sometimes ETIMEDOUT — retry
+      await new Promise((r) => setTimeout(r, 1000 * attempt));
+    }
+  }
+}
+
+function parseSseEvents(text: string): any[] {
+  const events: any[] = [];
+  for (const line of text.split("\n")) {
+    const t = line.trim();
+    if (!t.startsWith("data:")) continue;
+    const json = t.slice(5).trim();
+    if (!json || json === "[DONE]") continue;
+    try {
+      events.push(JSON.parse(json));
+    } catch {
+      /* skip malformed line */
+    }
+  }
+  return events;
+}
+
+/** The scores `seq` to validate against: the `game_finalised` event, else the last. */
+export function finalSeq(events: any[]): number | null {
+  const finalised = [...events].reverse().find((e) => e.Action === "game_finalised");
+  const e = finalised ?? events[events.length - 1];
+  return e?.Seq !== undefined ? Number(e.Seq) : null;
 }

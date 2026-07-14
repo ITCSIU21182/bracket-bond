@@ -65,4 +65,7 @@ platform-tools new enough for the edition-2024 crates in `Cargo.lock`.
 re-run + the new Tier 3 smoke test on hardware):** `sell`/exit-anytime + solvency
 test + replay exit; live frontend wiring; and the **real TxLINE flow** wired from
 `txodds/tx-on-chain` (vendored devnet IDL, `validateStatV2`, guest+nacl auth,
-on-chain free-tier `subscribe`). Tier 3 is now runnable via `pnpm txline:demo`.
+on-chain free-tier `subscribe`). **Tier 3 verified live 2026-07-13** on real WC
+fixture 18213979 — `validateStatV2` returned a clean boolean (proof verified
+on-chain). `pnpm txline:demo` auto-discovers a finished fixture. Program id is now
+fixed (committed keypair in `keys/`) — no `anchor keys sync` needed.
