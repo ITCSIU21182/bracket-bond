@@ -63,6 +63,33 @@ submission, **P1** = makes it strong, **P2** = polish/nice-to-have.
 ## Suggested order for the other-machine agent
 
 1. Tier 0 → Tier 1 (`anchor test`) → Tier 2 (`pnpm replay`). Report results.
-2. P1 **`sell`** instruction + its test (self-contained, no TxLINE creds needed).
-3. Frontend live reads/buy.
-4. When Txoracle IDL + subscription arrive: P0 PROOF-mode settlement (Tier 3).
+2. Tier 3 proof path: `pnpm txline:demo` (needs funded devnet wallet). ✅ verified.
+3. Full on-chain settle: `pnpm settle:proof` (see Definition of Done).
+
+---
+
+## Definition of Done → submission (deadline 2026-07-19)
+
+The technical core is verified live (Tier 0–2 + the Tier 3 proof path on a real WC
+match). What's left is the full loop + packaging:
+
+- [ ] **Full on-chain PROOF settle** — `pnpm settle:proof` eliminates a real
+      knockout outcome by proof, end to end, on devnet. _Accept:_ prints
+      `outcome N status = 1 (eliminated)`.
+- [ ] **Public devnet deploy** of the program (needs devnet SOL). _Accept:_ a
+      program id + a deployed market others can hit.
+- [ ] **Frontend live** on the deployed market (copy the built IDL to
+      `app/public/idl/bracket_bond.json`, set `app/.env.local`); wallet connects,
+      Buy/Exit work.
+- [ ] **Demo video ≤5 min** (replay + a real proof settle) per `docs/spec.md §8`.
+- [ ] **Superteam Earn submission**: repo link, deployed/devnet link, a short
+      technical doc listing the exact TxLINE endpoints used, + the API-experience
+      feedback field.
+- [ ] **Compliance check**: play-money/devnet only; no real TxLINE data committed
+      (✓ synthetic fixtures); confirm the brief permits AI-assisted code.
+
+**Known limitation to mention (or harden if time):** `settle_round` requires the
+relayed proof to return `true` but does not yet **bind** it to the eliminated
+outcome/fixture — the oracle authority pairs them (the `settle:proof` driver does).
+Binding the proof's fixture + predicate to the market outcome on-chain is the next
+hardening step.

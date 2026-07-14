@@ -4,7 +4,7 @@
 // txodds/tx-on-chain/examples/devnet/scripts/subscription_scores_1stat.ts.
 
 import * as anchor from "@coral-xyz/anchor";
-import { PublicKey, TransactionInstruction } from "@solana/web3.js";
+import { ComputeBudgetProgram, PublicKey, TransactionInstruction } from "@solana/web3.js";
 import { TxlineAuth } from "./auth";
 import txoracleIdl from "./idl/txoracle.json";
 
@@ -139,6 +139,20 @@ export async function buildValidateStatV2Ix(
     .validateStatV2(payload, strategy)
     .accounts({ dailyScoresMerkleRoots: pda })
     .instruction();
+}
+
+/** Run validateStatV2 as a read-only view — returns the boolean directly. */
+export async function viewValidateStatV2(
+  txoracle: anchor.Program,
+  val: StatValidationResponse,
+  strategy: any,
+): Promise<boolean> {
+  const pda = dailyScoresPda(txoracle.programId, val.summary.updateStats.minTimestamp);
+  return (txoracle.methods as any)
+    .validateStatV2(buildStatValidationInput(val), strategy)
+    .accounts({ dailyScoresMerkleRoots: pda })
+    .preInstructions([ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 })])
+    .view();
 }
 
 /** Split a built instruction into the args `settle_round` expects. */

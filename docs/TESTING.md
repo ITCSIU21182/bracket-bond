@@ -110,12 +110,17 @@ predicate (goals A − B > 0) evaluated.
 > clean boolean. The differentiator works live. (`false` there = Norway didn't
 > outscore England — the predicate correctly reflected the real result.)
 
-**Step B — enforce it on-chain** (optional, full loop): deploy Bracket Bond, call
-`initialize` with `settlement_mode = 1` (PROOF), then drive `settle_round` with the
-built instruction — `buildValidateStatV2Ix(txoracle, val, advancementStrategy())`
-+ `relayThroughSettleRound(ix)`, plus a `ComputeBudget` (~1.4M CU) on the tx.
-**Pass:** `settle_round` succeeds only when the proof verifies; a tampered
-stat/proof reverts with `ProofFailed`.
+**Step B — enforce it on-chain (full loop):** after deploying Bracket Bond
+(`anchor deploy`), run:
+```bash
+ANCHOR_WALLET=<key> ANCHOR_PROVIDER_URL=https://api.devnet.solana.com pnpm settle:proof
+```
+It subscribes, discovers a finished fixture, lets the proof pick the winner,
+creates a PROOF-mode market, and settles the losing outcome by relaying
+`validateStatV2` through `settle_round` (+1.4M CU). **Pass:** prints
+`outcome N status = 1 (eliminated)` and the ✅ line. **Prereq:** the program's
+`Config` must be PROOF mode — use a **fresh deploy/cluster** (a prior `anchor test`
+inits Config as `TRUSTED_ORACLE` on that ledger, which skips the proof CPI).
 
 **Likely first-run issues to report:** exact `subscribe` account names, live
 `stat-validation` field names, or `NDimensionalStrategy` shape — send ~30 lines of
