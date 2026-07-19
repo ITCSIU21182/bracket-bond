@@ -81,7 +81,7 @@ Program id (devnet): `EbYmsXdALmF4GHY5JQT2Rv5fqC2Nws2qFcnh4B1QXE3U`.
 
 **Shootout correctness:** full-game goal stats exclude shootout goals, so a knockout
 level at full time went to penalties. Bracket Bond then proves the shootout winner
-with the PE keys `6001`/`6002` — the case nearly every rival mis-handles.
+with the PE keys `6001`/`6002` — the hardest case in knockout football to get right.
 
 ## Architecture
 
