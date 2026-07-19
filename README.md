@@ -17,6 +17,7 @@ Settlement*.
 [Testing](docs/TESTING.md) ·
 [Agent handoff](docs/AGENT-HANDOFF.md) ·
 [Demo script](docs/DEMO.md) ·
+[Deploy](docs/DEPLOY.md) ·
 [Roadmap](docs/ROADMAP.md)
 
 </div>
