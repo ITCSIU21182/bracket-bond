@@ -55,6 +55,14 @@ railway domain                                 # get the public URL
 > "Not Authorized" from both the CLI and Railway's API — regenerate it, and **rotate**
 > it afterward since it was shared in chat.)
 
+### Troubleshooting: "Detected Rust / No start command"
+
+If Railway builds the repo **root**, it finds the Anchor/Rust program and fails with
+`Detected Rust` + `No start command`. Fix either way:
+- **Set Root Directory = `app`** (Settings → Build), or
+- Just **redeploy** — the repo's root `Dockerfile` forces Railway to build the
+  Next.js app in `app/` regardless of the root directory.
+
 ### Going fully live (optional)
 
 To wire the frontend to a real on-chain market instead of mock data: `anchor build`
