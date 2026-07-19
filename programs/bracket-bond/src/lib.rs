@@ -20,6 +20,16 @@ use state::*;
 
 declare_id!("EbYmsXdALmF4GHY5JQT2Rv5fqC2Nws2qFcnh4B1QXE3U");
 
+/// Minimal borsh view of the leading fields of a `validateStatV2` instruction's
+/// data, used to bind a relayed proof to a fixture. Layout after the 8-byte
+/// instruction discriminator: `ts: i64`, then `fixture_summary.fixture_id: u64`.
+#[derive(AnchorDeserialize)]
+struct ProofHeader {
+    #[allow(dead_code)]
+    ts: i64,
+    fixture_id: u64,
+}
+
 #[program]
 pub mod bracket_bond {
     use super::*;
@@ -78,6 +88,7 @@ pub mod bracket_bond {
         index: u8,
         team_id: u32,
         initial_mark: u32,
+        expected_fixture_id: u64,
     ) -> Result<()> {
         require!(
             ctx.accounts.market.status == market_status::OPEN,
@@ -94,6 +105,7 @@ pub mod bracket_bond {
         outcome.status = outcome_status::ALIVE;
         outcome.mark = initial_mark;
         outcome.shares_outstanding = 0;
+        outcome.expected_fixture_id = expected_fixture_id;
         outcome.bump = ctx.bumps.outcome;
 
         let market = &mut ctx.accounts.market;
@@ -270,6 +282,18 @@ pub mod bracket_bond {
             let (ret_program, ret_data) = get_return_data().ok_or(BracketError::ProofFailed)?;
             require_keys_eq!(ret_program, config.txoracle_program, BracketError::BadOracleProgram);
             require!(ret_data.first() == Some(&1u8), BracketError::ProofFailed);
+
+            // Bind the proof to THIS outcome's fixture: the relayed proof must be
+            // for the fixture that decides this outcome's round. Without this an
+            // oracle could prove match A but eliminate a team from match B.
+            let expected = ctx.accounts.outcome.expected_fixture_id;
+            if expected != 0 {
+                // `ix.data` now owns the validateStat instruction bytes.
+                require!(ix.data.len() >= 24, BracketError::ProofFailed);
+                let header = ProofHeader::deserialize(&mut &ix.data[8..])
+                    .map_err(|_| BracketError::ProofFailed)?;
+                require!(header.fixture_id == expected, BracketError::FixtureMismatch);
+            }
         }
 
         let market = &mut ctx.accounts.market;
@@ -278,9 +302,17 @@ pub mod bracket_bond {
         let outcome = &mut ctx.accounts.outcome;
         require!(outcome.status == outcome_status::ALIVE, BracketError::OutcomeNotAlive);
         outcome.status = outcome_status::ELIMINATED;
+        let outcome_index = outcome.index;
+        let fixture_id = outcome.expected_fixture_id;
 
         market.alive_count = market.alive_count.checked_sub(1).ok_or(BracketError::MathOverflow)?;
         market.round = market.round.checked_add(1).ok_or(BracketError::MathOverflow)?;
+        emit!(RoundSettled {
+            market: market.key(),
+            outcome_index,
+            fixture_id,
+            round: market.round,
+        });
         Ok(())
     }
 
@@ -308,6 +340,10 @@ pub mod bracket_bond {
         market.fees_accrued = fee;
         market.winner_index = outcome.index as i16;
         market.status = market_status::RESOLVED;
+        emit!(MarketResolved {
+            market: market.key(),
+            winner_index: outcome.index,
+        });
         Ok(())
     }
 
@@ -584,4 +620,22 @@ pub struct ClaimFees<'info> {
     #[account(mut)]
     pub authority: Signer<'info>,
     pub system_program: Program<'info, System>,
+}
+
+// ---------------------------------------------------------------------------
+// Events (for the live settlement feed + indexing)
+// ---------------------------------------------------------------------------
+
+#[event]
+pub struct RoundSettled {
+    pub market: Pubkey,
+    pub outcome_index: u8,
+    pub fixture_id: u64,
+    pub round: u8,
+}
+
+#[event]
+pub struct MarketResolved {
+    pub market: Pubkey,
+    pub winner_index: u8,
 }

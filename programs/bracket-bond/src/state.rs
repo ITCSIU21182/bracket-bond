@@ -78,6 +78,11 @@ pub struct Outcome {
     /// Used only to price `buy`/`sell` — never for settlement.
     pub mark: u32,
     pub shares_outstanding: u128,
+    /// The TxLINE fixture whose result decides this outcome's elimination this
+    /// round. `settle_round` (PROOF mode) requires the relayed proof to be for
+    /// this fixture, so an oracle can't prove match A but eliminate a team from
+    /// match B. `0` = unbound (TRUSTED_ORACLE demos/tests).
+    pub expected_fixture_id: u64,
     pub bump: u8,
 }
 

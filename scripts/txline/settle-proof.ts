@@ -90,7 +90,7 @@ async function main() {
     .rpc();
   for (const idx of [0, 1]) {
     await program.methods
-      .addOutcome(idx, idx, 500000)
+      .addOutcome(idx, idx, 500000, new anchor.BN(fixtureId))
       .accounts({ market, outcome: pda.outcome(market, idx), authority: me, systemProgram: SystemProgram.programId })
       .rpc();
   }

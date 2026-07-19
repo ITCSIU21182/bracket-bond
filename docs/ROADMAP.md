@@ -89,12 +89,24 @@ match). What's left is the full loop + packaging:
 - [ ] **Compliance check**: play-money/devnet only; no real TxLINE data committed
       (✓ synthetic fixtures); confirm the brief permits AI-assisted code.
 
-**Known limitation to mention (or harden if time):** `settle_round` requires the
-relayed proof to return `true` but does not yet **bind** it to the eliminated
-outcome/fixture — the oracle authority pairs them (the `settle:proof` driver does).
-Binding the proof's fixture + predicate to the market outcome on-chain is the next
-hardening step. (ShroudLine builds the strategy on-chain with key-pinning — a
-model to follow.)
+**Trustless binding (done + next):** `settle_round` now binds the relayed proof to
+each outcome's `expected_fixture_id` (parses the fixture id from the validateStat
+data, requires a match) — an oracle can't prove match A and eliminate a team from
+match B. Remaining hardening: build the predicate strategy on-chain and pin each
+stat key to a fixed index (ShroudLine's model) so the *predicate* is program-enforced
+too. Every settlement now emits a `RoundSettled` event (live feed + indexing).
+
+## What's next (pitch "v2" — rides 2026 trends)
+
+- **Autonomous auto-settler + market-maker agent:** turn the relayer into an agent
+  that arbs marks vs live odds and auto-settles the instant a proof exists — reaches
+  into the **Trading Tools & Agents** track ($16K) and the 2026 agents narrative
+  (packageable as an ElizaOS plugin).
+- **x402 "settlement-as-a-service":** expose proof-settlement as an x402 endpoint so
+  other Solana markets pay per-call to settle objectively — a hot 2026 agentic-payments
+  primitive and a strong expansion story.
+- **Proof-receipt NFT:** mint each settled round's proof as a shareable "verified
+  receipt" — touches the Consumer & Fan track and adds virality.
 
 ## Competitive edge (from competitor analysis — see `docs/competitors.md`)
 

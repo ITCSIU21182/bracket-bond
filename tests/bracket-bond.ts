@@ -42,7 +42,7 @@ describe("bracket-bond", () => {
       [1, 300000],
     ] as const) {
       await program.methods
-        .addOutcome(index, 1000 + index, mark)
+        .addOutcome(index, 1000 + index, mark, new anchor.BN(0))
         .accounts({
           market,
           outcome: pda.outcome(market, index),
@@ -135,7 +135,7 @@ describe("bracket-bond", () => {
       [1, 300000],
     ] as const) {
       await program.methods
-        .addOutcome(index, 1000 + index, mark)
+        .addOutcome(index, 1000 + index, mark, new anchor.BN(0))
         .accounts({ market: m2, outcome: pda.outcome(m2, index), authority: wallet, systemProgram: SystemProgram.programId })
         .rpc();
     }

@@ -99,10 +99,15 @@ No score-field parsing, no trusted input.
 The same `settle_round` code path runs the proof CPI in `PROOF` mode; the mode is
 a config flag, not a fork in the logic.
 
-## Known limitation
+## Trustless binding
 
-`settle_round` requires the relayed proof to return `true` but does **not yet bind
-that proof to the specific outcome/fixture** being eliminated — the oracle
-authority pairs them (the `settle:proof` driver does this correctly). Binding the
-proof's fixture + predicate to the market outcome on-chain is the next hardening
-step.
+`settle_round` doesn't just require the proof to return `true` — it also **binds
+the proof to this outcome's fixture on-chain**. Each `Outcome` stores an
+`expected_fixture_id`; `settle_round` parses the fixture id out of the relayed
+`validateStatV2` data and requires it to match before eliminating. So an oracle
+can't prove match A and eliminate a team from match B — the fixture is pinned, and
+every settlement emits a `RoundSettled` event for the live feed.
+
+The next hardening (following ShroudLine's model): build the predicate strategy
+on-chain and pin each stat key to a fixed index, so the *predicate* — not just the
+fixture — is program-enforced. Tracked in the roadmap.

@@ -51,7 +51,7 @@ async function main() {
 
   for (const o of run.outcomes) {
     await program.methods
-      .addOutcome(o.index, o.teamId, o.initialMark)
+      .addOutcome(o.index, o.teamId, o.initialMark, new anchor.BN(0))
       .accounts({
         market,
         outcome: pda.outcome(market, o.index),

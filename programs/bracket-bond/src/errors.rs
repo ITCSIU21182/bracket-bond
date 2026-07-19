@@ -28,6 +28,8 @@ pub enum BracketError {
     BadOracleProgram,
     #[msg("On-chain stat proof did not verify (validateStat returned false)")]
     ProofFailed,
+    #[msg("Proof fixture does not match this outcome's expected fixture")]
+    FixtureMismatch,
     #[msg("Outcome pool has no shares to redeem against")]
     NoShares,
 }
