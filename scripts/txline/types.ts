@@ -8,9 +8,12 @@ export const PHASE_ENDED = 5;
 export const PHASE_ENDED_ET = 10;
 export const PHASE_ENDED_SHOOTOUT = 13;
 
-// Penalty-shootout stat keys (team totals only — no per-kick data exists).
-export const KEY_PE_GOALS_P1 = 5001;
-export const KEY_PE_GOALS_P2 = 5002;
+// Penalty-shootout goals per participant. NB: the live feed inserts a half-time
+// slot at +2000 that shifts the documented period table, so 5001/5002 are
+// actually ET2 goals — PE goals are at +6000. (Inferred; confirm against a
+// StatusId-13 "finished on penalties" fixture before mainnet.)
+export const KEY_PE_GOALS_P1 = 6001;
+export const KEY_PE_GOALS_P2 = 6002;
 
 /** One StablePrice odds snapshot for a fixture's outcomes. */
 export interface OddsUpdate {

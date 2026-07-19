@@ -270,6 +270,31 @@ screen that wins the demo.
 
 ---
 
+## E2. Competitive UX additions (from rival analysis — see `docs/competitors.md`)
+
+Add these to stand out from the other proof-settled markets:
+
+- **Judge Mode (`/judge`)** — a verified-replay page (borrow predict9ja's flagship):
+  pick a settled round, and walk **source proof → `validate_stat_v2` CPI tx →
+  bracket progression**, with the Merkle root, the predicate (incl. the shootout
+  path), and a Solscan link. Judges reward inspectable settlement; make this a
+  headline screen. Lovable prompt: *"Add a Judge Mode page that, for a settled
+  round, shows a step timeline: TxLINE proof received → validateStatV2 verified
+  on-chain (tx link) → outcome eliminated → bracket advanced, each step with its
+  data receipt. Clean, technical, trustworthy."*
+- **Live TxLINE reference odds beside your mark** (borrow world-cup's OddsPanel) —
+  shows market context and that pricing is data-driven.
+- **Status lifecycle as a design-system** (borrow matchlock): outcome states
+  `alive → eliminated → won` (and market `open → resolved`) with dedicated color
+  tokens + badges, used consistently everywhere.
+- **Reward the settlement moment**: sonner toast + a subtle confetti + the proof
+  reveal — make claim/settle feel great.
+- **"Challenge a friend"** shareable link that opens a market with your position
+  highlighted (natural virality for brackets).
+- **Telegram alert** when your bracket outcome settles / a proof lands.
+- Security note for wiring: **keep the TxLINE JWT/API token server-side** (a keeper
+  proxy) — several rivals leak them in the client bundle; don't.
+
 ## E. Wiring notes (for when the design comes back)
 
 Once Lovable's UI is in, swap mock data for the real client:

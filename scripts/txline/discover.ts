@@ -1,10 +1,11 @@
 // Discover a finished fixture + its final scores `seq`, so the smoke test can
 // run turnkey. Empirical (from a real run):
-//  - GET /api/fixtures/updates/{epochDay}/{hourOfDay} lists fixtures; a finished
-//    match has GameState === 3 (this differs from the scores-stream phase codes
-//    5/10/13). FixtureId may be packed as gameState*2^48 + pureId.
-//  - GET /api/scores/historical/{fixtureId} is SSE; the final `Seq` comes from
-//    the `game_finalised` event.
+//  - GET /api/fixtures/updates/{epochDay}/{hourOfDay} lists fixtures. Finished
+//    signals are inconsistent (GameState / StatusId), so we treat them as HINTS
+//    and let the `game_finalised` event be the real authority. FixtureId may be
+//    packed as gameState*2^48 + pureId.
+//  - GET /api/scores/historical/{fixtureId} is SSE; the settle `Seq` is the
+//    `game_finalised` event's Seq (StatusId 10 = finished-after-ET, 13 = penalties).
 
 import { TxlineAuth } from "./auth";
 import { withRetry } from "./net";
@@ -45,13 +46,16 @@ export async function discoverFinishedFixture(
 
     for (const it of items ?? []) {
       const packed = BigInt(Math.trunc(Number(it.FixtureId)));
-      const gameState = it.GameState ?? Number(packed / SHIFT);
-      if (gameState !== 3) continue; // 3 = finished (fixtures/updates)
+      const statusId = Number(it.StatusId ?? 0);
+      const gameState = Number(it.GameState ?? Number(packed / SHIFT));
+      // Candidate filter only — the game_finalised event (finalSeq) is the authority.
+      const maybeFinished = [5, 10, 13].includes(statusId) || [3, 5, 10, 13].includes(gameState);
+      if (!maybeFinished) continue;
       const fixtureId = Number(packed % SHIFT);
 
       const events = await fetchHistoricalScores(host, auth, fixtureId).catch(() => [] as any[]);
       const seq = finalSeq(events);
-      if (seq !== null) return { fixtureId, seq };
+      if (seq !== null) return { fixtureId, seq }; // only genuinely finalised fixtures
     }
   }
   return null;

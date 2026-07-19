@@ -66,14 +66,22 @@ boolean on-chain.
 
 Genuine friction, surfaced by building against the live feed:
 
-- `/api/token/activate` returns plain text, not JSON — a `res.json()` throws before
-  any fallback runs.
-- The dev host times out frequently on ~1 MB payloads; without retries a single
-  `ETIMEDOUT` fails a whole run.
-- `GameState === 3` marks a **finished** fixture on `/fixtures/updates` — distinct
-  from the scores-stream phase codes `5 / 10 / 13`, which is easy to conflate.
-- `/api/scores/historical` is SSE (`data:` lines), not a JSON array; the settle
-  `seq` is the `game_finalised` event's `Seq`.
+- **The documented stat-key period table doesn't match the live feed.** It inserts
+  a half-time slot at `+2000`, shifting everything after it: `+5000` is actually
+  **ET2** goals, and penalty-shootout goals are at **`+6000`** (6001/6002), not the
+  documented `+5000`. A knockout on penalties therefore looks *level* at full time,
+  so settlement needs a shootout predicate (`goals level` AND `pens differ`) or it
+  resolves as a draw.
+- **`period` is not a query param** — it's encoded in the stat-key offset; `&period=`
+  is silently ignored. You *witness* a `seq` where the predicate holds.
+- **Finality ≠ recency.** A later, non-final `seq` can arrive *after* the
+  `game_finalised` event with the same score — settle on the `game_finalised` seq,
+  never `max(seq)`.
+- **`GameState` isn't a reliable "finished" flag** — the robust signals are the
+  `game_finalised` event and `StatusId` (`10` = after-ET, `13` = on-penalties).
+- `/api/token/activate` returns a **plain-text** token, not JSON (`res.json()` throws).
+- The dev host times out often on ~1 MB payloads — wrap every call in retry-with-backoff.
+- `/api/scores/historical` is SSE (`data:` lines), not a JSON array.
 - The Txoracle IDL lives in the [`txodds/tx-on-chain`](https://github.com/txodds/tx-on-chain)
   examples — vendored here at `scripts/txline/idl/txoracle.json` (Apache-2.0).
 

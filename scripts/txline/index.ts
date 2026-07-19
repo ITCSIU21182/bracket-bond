@@ -6,17 +6,10 @@
 
 import "dotenv/config";
 import * as anchor from "@coral-xyz/anchor";
-import { Keypair, ComputeBudgetProgram, PublicKey } from "@solana/web3.js";
+import { Keypair, PublicKey } from "@solana/web3.js";
 import { authenticate } from "./auth";
 import { subscribeFreeTier } from "./subscribe";
-import {
-  loadTxoracle,
-  fetchStatValidation,
-  buildStatValidationInput,
-  dailyScoresPda,
-  advancementStrategy,
-  singleStatStrategy,
-} from "./statValidation";
+import { loadTxoracle, determineAdvancement } from "./statValidation";
 import { discoverFinishedFixture } from "./discover";
 import { withRetry } from "./net";
 
@@ -36,7 +29,6 @@ async function main() {
   );
   const argFixture = Number(process.argv[2]);
   const argSeq = Number(process.argv[3]);
-  const statKeys = (process.argv[4] ?? "1,2").split(",").map(Number);
 
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
@@ -68,20 +60,12 @@ async function main() {
     console.log(`    discovered fixture ${fixtureId} @ seq ${seq}`);
   }
 
-  console.log("3/4 fetching stat-validation proof…");
-  const val = await fetchStatValidation({ baseUrl: host, auth, fixtureId, seq, statKeys });
-  console.log("    stats:", val.statsToProve.length, "@ ts", val.summary.updateStats.minTimestamp);
-
-  console.log("4/4 validateStatV2.view() on-chain…");
-  const strategy = statKeys.length >= 2 ? advancementStrategy(0, 1) : singleStatStrategy(0, 0);
-  const isValid = await (txoracle.methods as any)
-    .validateStatV2(buildStatValidationInput(val), strategy)
-    .accounts({ dailyScoresMerkleRoots: dailyScoresPda(txoracle.programId, val.summary.updateStats.minTimestamp) })
-    .preInstructions([ComputeBudgetProgram.setComputeUnitLimit({ units: 1_400_000 })])
-    .view();
-
-  console.log(`\nvalidateStatV2 → ${isValid}`);
-  console.log(isValid ? "✓ proof verified on-chain — settle_round can use this." : "✗ proof rejected.");
+  console.log("3/3 determining advancement via on-chain proof (validateStatV2)…");
+  const adv = await determineAdvancement(txoracle, { host, auth, fixtureId, seq });
+  console.log(`    participant ${adv.winner} advanced${adv.wentToPenalties ? " (on penalties)" : ""}`);
+  console.log(
+    `\n✓ proof verified on-chain — participant ${adv.winner} advances. settle_round can relay this.`,
+  );
 }
 
 if (require.main === module) {

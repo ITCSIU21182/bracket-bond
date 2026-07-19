@@ -23,10 +23,7 @@ import { loadProgram, pdas } from "../lib/program";
 import {
   loadTxoracle,
   TXORACLE_PROGRAM_ID,
-  fetchStatValidation,
-  buildValidateStatV2Ix,
-  viewValidateStatV2,
-  advancementStrategy,
+  determineAdvancement,
   relayThroughSettleRound,
 } from "./statValidation";
 import { authenticate } from "./auth";
@@ -64,19 +61,12 @@ async function main() {
     ({ fixtureId, seq } = found);
   }
   log(`2) fixture ${fixtureId} @ seq ${seq}`);
-  const val = await fetchStatValidation({ baseUrl: host, auth, fixtureId, seq, statKeys: [1, 2] });
 
-  // Let the proof itself decide the winner (no score-field parsing needed).
-  log("3) determining the winner via on-chain proof…");
-  const aWon = await viewValidateStatV2(txoracle, val, advancementStrategy(0, 1));
-  const bWon = aWon ? false : await viewValidateStatV2(txoracle, val, advancementStrategy(1, 0));
-  if (!aWon && !bWon) {
-    log("   draw — no elimination. Try another fixture.");
-    return;
-  }
-  const winner = aWon ? 0 : 1;
-  const loser = aWon ? 1 : 0;
-  log(`   participant ${winner} advanced → eliminate outcome ${loser}`);
+  // Let the proof itself decide who advanced (regulation/ET or penalty shootout).
+  log("3) determining advancement via on-chain proof…");
+  const adv = await determineAdvancement(txoracle, { host, auth, fixtureId, seq });
+  const { winner, loser } = adv;
+  log(`   participant ${winner} advanced${adv.wentToPenalties ? " (on penalties)" : ""} → eliminate outcome ${loser}`);
 
   // Fresh 2-outcome market in PROOF mode.
   const marketId = Math.floor(Date.now() % 1_000_000);
@@ -108,8 +98,7 @@ async function main() {
 
   // settle_round eliminates the loser, relaying the winning-advancement proof.
   log("5) settle_round (PROOF): relaying validateStatV2 on-chain…");
-  const ix = await buildValidateStatV2Ix(txoracle, val, advancementStrategy(winner, loser));
-  const relay = relayThroughSettleRound(ix);
+  const relay = relayThroughSettleRound(adv.ix);
   await program.methods
     .settleRound(relay.validateIxData)
     .accounts({

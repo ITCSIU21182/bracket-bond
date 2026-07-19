@@ -37,8 +37,8 @@ export async function* streamScores(opts: ScoresStreamOptions): AsyncGenerator<S
       gameState: p.gameState,
       goals: [p.goals?.[0] ?? 0, p.goals?.[1] ?? 0],
       shootout:
-        p["5001"] !== undefined || p["5002"] !== undefined
-          ? [p["5001"] ?? 0, p["5002"] ?? 0]
+        p["6001"] !== undefined || p["6002"] !== undefined
+          ? [p["6001"] ?? 0, p["6002"] ?? 0]
           : undefined,
     };
   }
@@ -111,9 +111,12 @@ function parseSseEvents(text: string): any[] {
   return events;
 }
 
-/** The scores `seq` to validate against: the `game_finalised` event, else the last. */
+/**
+ * The scores `seq` to validate against: the `game_finalised` event's `Seq`, or
+ * `null` if the match isn't finalised. Never use `max(seq)` — a later, non-final
+ * event can arrive after finalisation with the same score (a real feed trap).
+ */
 export function finalSeq(events: any[]): number | null {
-  const finalised = [...events].reverse().find((e) => e.Action === "game_finalised");
-  const e = finalised ?? events[events.length - 1];
-  return e?.Seq !== undefined ? Number(e.Seq) : null;
+  const finalised = [...events].reverse().find((e) => /final/i.test(String(e.Action ?? "")));
+  return finalised?.Seq !== undefined ? Number(finalised.Seq) : null;
 }

@@ -55,25 +55,29 @@ require_keys_eq!(prog, config.txoracle_program, BadOracleProgram);
 require!(data.first() == Some(&1u8), ProofFailed); // bool must be true
 ```
 
-## The advancement predicate
+## The advancement predicate (including shootouts)
 
-"Did participant A advance?" is a two-stat difference. The client requests both
-goal stats (`statKeys=1,2`) and asks the validator for `stat[A] − stat[B] > 0`:
+"Did participant A advance?" needs care. TxLINE's full-game goal stats (keys
+`1`/`2`) **exclude penalty-shootout goals**, so a knockout decided on penalties is
+*level* at full time — a naive `goals A − B > 0` would settle it as a draw. Two
+paths:
 
-```ts
-const strategy = {
-  geometricTargets: [],
-  distancePredicate: null,
-  discretePredicates: [
-    { binary: { indexA: 0, indexB: 1, op: { subtract: {} },
-                predicate: { threshold: 0, comparison: { greaterThan: {} } } } },
-  ],
-};
-const ix = await buildValidateStatV2Ix(txoracle, proof, strategy);
-```
+- **Regulation / extra time:** `Binary(goalsA − goalsB > 0)`.
+- **Level at full time → penalties:** `Binary(goalsA − goalsB == 0)` **AND**
+  `Binary(peA − peB > 0)`, using the penalty keys **6001/6002** (the live feed
+  shifts the documented period table — `+5000` is actually ET2; PE is `+6000`).
 
-The `settle:proof` driver lets the proof itself pick the winner: it views the
-predicate for A-vs-B and B-vs-A, then eliminates whichever side the proof rejects.
+`determineAdvancement` (`scripts/txline/statValidation.ts`) runs this with the
+proof itself: it checks "level after full time"; if not, it proves the regulation
+winner; if level, it fetches the PE stats and proves the shootout winner — then
+returns the winning `validateStatV2` instruction to relay through `settle_round`.
+No score-field parsing, no trusted input.
+
+<Callout type="info">
+  Most other submissions punt on shootouts — a QF/SF decided on penalties reads as
+  a draw under goals-only predicates. Settling knockout ties correctly (and
+  proving a real shootout on devnet) is our moat.
+</Callout>
 
 ## Verified live
 

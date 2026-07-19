@@ -110,20 +110,35 @@ export function singleStatStrategy(
  * are participant 1/2 goals. For shootout ties add the shootout stats and adjust.
  */
 export function advancementStrategy(indexA = 0, indexB = 1): any {
-  return {
-    geometricTargets: [],
-    distancePredicate: null,
-    discretePredicates: [
-      {
-        binary: {
-          indexA,
-          indexB,
-          op: { subtract: {} },
-          predicate: { threshold: 0, comparison: { greaterThan: {} } },
-        },
-      },
-    ],
-  };
+  return strategy([binaryLeg(indexA, indexB, CMP.gt)]);
+}
+
+// --- Stat keys + shootout-aware advancement ---
+export const KEY_GOALS_P1 = 1;
+export const KEY_GOALS_P2 = 2;
+export const KEY_PE_P1 = 6001; // see types.ts — PE goals live at +6000 (inferred)
+export const KEY_PE_P2 = 6002;
+
+const CMP = { gt: { greaterThan: {} }, lt: { lessThan: {} }, eq: { equalTo: {} } };
+function binaryLeg(indexA: number, indexB: number, comparison: any) {
+  return { binary: { indexA, indexB, op: { subtract: {} }, predicate: { threshold: 0, comparison } } };
+}
+function strategy(discretePredicates: any[]): any {
+  return { geometricTargets: [], distancePredicate: null, discretePredicates };
+}
+
+/** Full-game goals are level (k1 == k2) → the tie went to a penalty shootout. */
+export function levelAfterFullTime(a = 0, b = 1): any {
+  return strategy([binaryLeg(a, b, CMP.eq)]);
+}
+
+/**
+ * "Participant W won on penalties": level after full time AND more shootout goals.
+ * Indexes reference the `stats` order requested via statKeys=[1,2,6001,6002]:
+ * 0,1 = goals W/L; 2,3 = PE goals W/L.
+ */
+export function shootoutAdvance(goalsW: number, goalsL: number, peW: number, peL: number): any {
+  return strategy([binaryLeg(goalsW, goalsL, CMP.eq), binaryLeg(peW, peL, CMP.gt)]);
 }
 
 /**
@@ -165,4 +180,57 @@ export function relayThroughSettleRound(ix: TransactionInstruction) {
     remainingAccounts: ix.keys, // AccountMeta[] for the Txoracle instruction
     txoracleProgram: ix.programId,
   };
+}
+
+export interface Advancement {
+  winner: 0 | 1;
+  loser: 0 | 1;
+  wentToPenalties: boolean;
+  /** the winning validateStatV2 instruction to relay through settle_round */
+  ix: TransactionInstruction;
+}
+
+/**
+ * Decide which participant ADVANCED — handling regulation/ET and penalty
+ * shootouts — using the on-chain proof itself, and return the winning
+ * validateStatV2 instruction. Full-game goals (keys 1/2) exclude shootout goals,
+ * so a tie level at full time (`k1==k2`) means the match went to penalties;
+ * we then prove the shootout winner with the PE keys (6001/6002).
+ */
+export async function determineAdvancement(
+  txoracle: anchor.Program,
+  o: { host: string; auth: TxlineAuth; fixtureId: number; seq: number },
+): Promise<Advancement> {
+  const reg = await fetchStatValidation({
+    baseUrl: o.host,
+    auth: o.auth,
+    fixtureId: o.fixtureId,
+    seq: o.seq,
+    statKeys: [KEY_GOALS_P1, KEY_GOALS_P2],
+  });
+
+  const level = await viewValidateStatV2(txoracle, reg, levelAfterFullTime(0, 1));
+  if (!level) {
+    // Decided in regulation / extra time.
+    const p1Won = await viewValidateStatV2(txoracle, reg, advancementStrategy(0, 1));
+    const winner = (p1Won ? 0 : 1) as 0 | 1;
+    const loser = (p1Won ? 1 : 0) as 0 | 1;
+    const ix = await buildValidateStatV2Ix(txoracle, reg, advancementStrategy(winner, loser));
+    return { winner, loser, wentToPenalties: false, ix };
+  }
+
+  // Level at full time → decided on penalties. Fetch goals + PE goals.
+  const full = await fetchStatValidation({
+    baseUrl: o.host,
+    auth: o.auth,
+    fixtureId: o.fixtureId,
+    seq: o.seq,
+    statKeys: [KEY_GOALS_P1, KEY_GOALS_P2, KEY_PE_P1, KEY_PE_P2],
+  });
+  const p1Won = await viewValidateStatV2(txoracle, full, shootoutAdvance(0, 1, 2, 3));
+  const winner = (p1Won ? 0 : 1) as 0 | 1;
+  const loser = (p1Won ? 1 : 0) as 0 | 1;
+  const [gW, gL, peW, peL] = winner === 0 ? [0, 1, 2, 3] : [1, 0, 3, 2];
+  const ix = await buildValidateStatV2Ix(txoracle, full, shootoutAdvance(gW, gL, peW, peL));
+  return { winner, loser, wentToPenalties: true, ix };
 }

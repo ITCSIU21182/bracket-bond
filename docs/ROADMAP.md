@@ -93,4 +93,25 @@ match). What's left is the full loop + packaging:
 relayed proof to return `true` but does not yet **bind** it to the eliminated
 outcome/fixture — the oracle authority pairs them (the `settle:proof` driver does).
 Binding the proof's fixture + predicate to the market outcome on-chain is the next
-hardening step.
+hardening step. (ShroudLine builds the strategy on-chain with key-pinning — a
+model to follow.)
+
+## Competitive edge (from competitor analysis — see `docs/competitors.md`)
+
+The track is crowded with proof-settled markets; "we CPI into `validate_stat`" is
+not a differentiator. Ranked plan to win:
+
+- [x] **Shootout-aware settlement** — `determineAdvancement` handles regulation/ET
+      + penalties (PE keys 6001/6002). **Every rival punts on this** → our moat.
+- [ ] **Resolve a real shootout on devnet** (find a StatusId-13 fixture) — rivals
+      only have synthetic tests.
+- [ ] **Judge Mode page** — inspectable proof → CPI settle tx → bracket (borrow
+      predict9ja's `/judge`).
+- [ ] **Keeper + permissionless `settle_round`** — auto-advance rounds (match
+      ShroudLine automation) and drop the authority gate (beat their gating).
+- [ ] **Keep TxLINE secrets server-side** — rivals leak JWT/API token in the client bundle.
+- [ ] Live TxLINE **reference odds** beside the mark; optional small rake; Telegram
+      settle alerts; commit-reveal privacy.
+
+**Framing:** the *only* real, tradeable, tournament-long market (solvent parimutuel
++ exit) that settles knockout ties correctly, **including penalty shootouts**.
