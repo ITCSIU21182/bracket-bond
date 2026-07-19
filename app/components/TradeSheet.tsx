@@ -57,9 +57,10 @@ export function TradeSheet({
   const amt = Number(amount) || 0;
   const mark = outcome.mark || 0.01;
 
-  // Buy: shares = amount / mark, fee on notional. Exit: payout = shares * mark.
+  // Buy: shares = amount / mark. No buy fee — the protocol fee is skimmed from the
+  // pot at settlement (matches the program: fee applies to total_collateral at
+  // finalize). Exit: payout = shares * mark, clamped to the pool.
   const shares = mode === "buy" ? amt / mark : amt;
-  const fee = mode === "buy" ? amt * (feeBps / 10_000) : 0;
   const payout = mode === "exit" ? amt * mark : 0;
 
   const submit = async () => {
@@ -145,7 +146,10 @@ export function TradeSheet({
               {mode === "buy" ? (
                 <>
                   <Line label="You get" value={`${shares.toFixed(3)} shares`} />
-                  <Line label={`Fee (${(feeBps / 100).toFixed(0)}%)`} value={sol(fee, 3)} />
+                  <p className="pt-1 text-xs text-muted">
+                    No fee on buy. The {(feeBps / 100).toFixed(0)}% protocol fee is taken from the
+                    pot at settlement (from the winner&apos;s payout).
+                  </p>
                 </>
               ) : (
                 <>

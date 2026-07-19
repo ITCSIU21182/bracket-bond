@@ -16,6 +16,8 @@ export interface TeamOutcome {
   sharesOutstanding: number;
   /** the TxLINE fixture that decides this team's current round. */
   fixtureId?: number;
+  /** TxLINE reference decimal odds (bookmaker), shown beside our mark. */
+  refOdds?: number;
 }
 
 export interface Market {
@@ -28,6 +30,10 @@ export interface Market {
   feeBps: number;
   teams: TeamOutcome[];
   winnerIndex: number | null;
+  /** 24h traded volume (native SOL). */
+  volume24hSol?: number;
+  /** seconds since the last on-chain / odds update, for a "live" indicator. */
+  updatedAgoSec?: number;
   /** true once wired to a deployed on-chain market. */
   live?: boolean;
 }

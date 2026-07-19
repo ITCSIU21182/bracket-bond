@@ -10,10 +10,11 @@ import { StatTile } from "@/components/StatTile";
 import { OutcomeRow } from "@/components/OutcomeRow";
 import { BracketMini } from "@/components/BracketMini";
 import { SettlementFeedItem } from "@/components/SettlementFeedItem";
+import { LiveBadge, DataSource } from "@/components/LiveBadge";
 import { ProofReceipt } from "@/components/ProofReceipt";
 import { TradeSheet, type TradeMode } from "@/components/TradeSheet";
 import { AreaChart } from "@/components/charts/AreaChart";
-import { marketById, markHistory, settlementFeed } from "@/lib/mockData";
+import { marketById, markHistory, mockPositions, settlementFeed } from "@/lib/mockData";
 import type { Market, SettlementEvent, TeamOutcome } from "@/lib/types";
 import { cents, sol } from "@/lib/format";
 import { cn } from "@/lib/cn";
@@ -129,6 +130,11 @@ export default function MarketDetail() {
   }, []);
 
   const aliveCount = market.teams.filter((t) => t.status !== "eliminated").length;
+  const yourPositionSol = connected
+    ? mockPositions()
+        .filter((p) => p.marketId === id)
+        .reduce((s, p) => s + p.valueSol, 0)
+    : 0;
 
   return (
     <div className="mx-auto max-w-6xl px-5 pb-20 pt-10">
@@ -138,8 +144,12 @@ export default function MarketDetail() {
 
       <div className="mt-4 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="display text-4xl sm:text-5xl">{market.title}</h1>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="display text-4xl sm:text-5xl">{market.title}</h1>
+            {!resolved && <LiveBadge />}
+          </div>
           <p className="mt-1 text-muted">{market.subtitle}</p>
+          <DataSource className="mt-2.5" />
         </div>
         <span
           className={`rounded-full border px-3 py-1 text-sm ${
@@ -150,9 +160,14 @@ export default function MarketDetail() {
         </span>
       </div>
 
-      <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <StatTile label="Pool" value={sol(market.poolSol)} />
-        <StatTile label="Your position" value={connected ? sol(1.2) : "-"} accent={connected ? "accent" : "muted"} />
+        <StatTile label="24h volume" value={sol(market.volume24hSol ?? 0)} accent="accent" />
+        <StatTile
+          label="Your position"
+          value={connected ? sol(yourPositionSol) : "-"}
+          accent={connected ? "accent" : "muted"}
+        />
         <StatTile label="Teams alive" value={aliveCount} />
         <StatTile label="Fee" value={`${(market.feeBps / 100).toFixed(0)}%`} accent="muted" />
       </div>

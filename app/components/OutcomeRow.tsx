@@ -55,11 +55,12 @@ export function OutcomeRow({
         </div>
       </div>
 
-      <MarkTicker
-        value={outcome.mark}
-        size="lg"
-        className={cn("w-24 justify-end", eliminated && "text-muted")}
-      />
+      <div className="flex w-24 flex-col items-end">
+        <MarkTicker value={outcome.mark} size="lg" className={cn(eliminated && "text-muted")} />
+        {!eliminated && outcome.mark > 0 && (
+          <span className="tnum text-[11px] text-muted-2">{(1 / outcome.mark).toFixed(2)}x odds</span>
+        )}
+      </div>
 
       <div className="flex w-[150px] justify-end gap-2">
         {resolved ? (

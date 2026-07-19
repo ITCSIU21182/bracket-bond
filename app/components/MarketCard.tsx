@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight, ShieldCheck } from "lucide-react";
 import { Card } from "./ui/Card";
 import { MarkTicker } from "./MarkTicker";
+import { LiveBadge } from "./LiveBadge";
 import { cn } from "@/lib/cn";
 import { sol } from "@/lib/format";
 import type { Market } from "@/lib/types";
@@ -37,6 +38,7 @@ export function MarketCard({ market, featured = false }: { market: Market; featu
               >
                 {market.status}
               </span>
+              {market.status === "open" && <LiveBadge />}
             </div>
             <p className="mt-1 text-sm text-muted">{market.subtitle}</p>
           </div>
@@ -49,6 +51,11 @@ export function MarketCard({ market, featured = false }: { market: Market; featu
           <span className="tnum">
             <span className="text-muted">pool </span>
             <span className="font-semibold">{sol(market.poolSol)}</span>
+          </span>
+          <span className="text-muted">·</span>
+          <span className="tnum">
+            <span className="text-muted">24h vol </span>
+            <span className="font-semibold">{sol(market.volume24hSol ?? 0)}</span>
           </span>
           <span className="text-muted">·</span>
           <span className="text-muted">{aliveCount} teams alive</span>

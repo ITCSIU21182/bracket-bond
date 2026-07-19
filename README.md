@@ -1,85 +1,162 @@
-# 🏆 Bracket Bond
+<div align="center">
 
-**A World Cup prediction market where your position lives across the entire knockout run — and every round is settled by a cryptographic proof of the real match data, not a human committee.**
+<img src="app/public/brand/logo.png" alt="Bracket Bond" width="96" />
 
-Buy into *"Team X reaches the final,"* watch it mark up and down live from real odds, exit anytime, and let a proof of the actual result — anchored on Solana by **TxLINE** — settle every round automatically on-chain.
+# Bracket Bond
 
-> **Judge one-liner:** *"Polymarket settles by having humans agree. We settle by proving the real result — automatically, no dispute window — shaped as a bond that lives across the whole tournament."*
+**Hold a World Cup position that settles itself — by proof, not by vote.**
 
-Built for the **TxODDS × Superteam World Cup Hackathon** — *Prediction Markets & Settlement* track ($18k USDT).
+A tradeable, tournament-long prediction market on **Solana**, where every knockout
+round resolves on a **cryptographic proof of the real match data** (TxLINE /
+TxODDS) — including penalty shootouts. No human oracle, no dispute window.
+
+Built for the **TxODDS × Superteam World Cup Hackathon** — *Prediction Markets &
+Settlement*.
+
+[Settlement](docs-site/content/docs/settlement.mdx) ·
+[Testing](docs/TESTING.md) ·
+[Agent handoff](docs/AGENT-HANDOFF.md) ·
+[Demo script](docs/DEMO.md) ·
+[Roadmap](docs/ROADMAP.md)
+
+</div>
 
 ---
 
-## Why this is different
+## Why it's different
 
-Most prediction markets — Polymarket included — resolve through a **human-driven optimistic oracle**: someone proposes the outcome, there's a dispute window, and it can be challenged or stall. That is trust-*minimized*, not trust-*less*.
+Most prediction markets answer *"who decides the result?"* with people — a proposer,
+a dispute window, token-holder voters. That's trust-*minimized*, not trust-*less*.
+For an objective sports outcome ("did Brazil advance?"), a **math-proven settlement**
+is strictly better than a vote.
 
-Bracket Bond settles on a **cryptographic proof of the actual match data, anchored on Solana by TxLINE** (`Txoracle.validateStat`), resolving automatically with **no human in the loop and no dispute window**. For an objective sports outcome ("did Brazil advance?") a math-proven settlement is strictly better than a vote.
+Bracket Bond settles each knockout round on a **TxLINE Merkle proof of the real
+match data**, verified on-chain via a CPI into TxODDS's `Txoracle` program. The
+elimination applies **only if the proof verifies**.
 
-To keep that claim honest, **every market is limited to objective, TxLINE-provable outcomes** — advancement, goals, cards, corners, penalty-shootout results. No subjective markets (a "controversial VAR call" would need an oracle and would dissolve the differentiator).
+| | Bracket Bond | Typical rivals |
+|---|---|---|
+| Settlement | Cryptographic proof (on-chain CPI) | Human oracle / vote / dispute window |
+| Penalty shootouts | ✅ Settled correctly (PE keys 6001/6002) | ❌ Usually mis-settled as a draw |
+| Tradeable | ✅ Buy + **exit anytime** at the live mark | Often locked until resolution |
+| Who can settle | ✅ **Permissionless** (anyone / a keeper) | Authority-gated |
+| Can the winner be wrongly eliminated? | ❌ Reverts — predicate is rebuilt on-chain | — |
 
-## The two things that make it a *product*
+## ✅ Verified on-chain (devnet)
 
-1. **Verifiable, automatic settlement** *(the headline)* — the moat fires up to **4× in one tournament**, once per knockout round.
-2. **A tournament-long, exitable position** *(supporting)* — you hold a "bond" on a team's whole run, mark-to-market live from real odds, and can cash out any time.
+Backend + on-chain behavior was verified end-to-end on devnet (full log:
+[`docs/AGENT-HANDOFF.md`](docs/AGENT-HANDOFF.md)):
 
-## How it works
+- **Permissionless settle** from a non-authority wallet —
+  [`settle_round` tx `2emcrff…`](https://solscan.io/tx/2emcrffBsuuX3t2M7EH6Au2Uzkvr2j29yMx5twmPjVn8YaQAcnWbU5ZvRyEf5nJurb81N4GVVCq69oLZvWimeZCa?cluster=devnet)
+  (settler ≠ config authority).
+- **Can't eliminate the winner** — pointing settlement at the winning team **reverts
+  `ProofFailed`** (the program rebuilds the predicate on-chain and doesn't trust the
+  caller's strategy).
+- **Compute budget** — the on-chain parse + predicate-rebuild + the ~1.4M-CU proof
+  CPI fit in **195,734 / 1,400,000 CU**.
+- **First proof settle** (Norway v England, fixture 18213979) —
+  [`tx 65jgF1VB…`](https://solscan.io/tx/65jgF1VB5X6PNg75dQvtzhHqU438s8n5TDG3QTSqevR4cUr75eEfqK9NWefYQETxVeYTqgJxzL3vcinuf2XmZLGw?cluster=devnet).
 
-1. **Browse** the flagship market: *"Race to the Final."*
-2. **Buy** an outcome for a team at the current price (e.g. `Brazil @ 0.42`).
-3. **Watch** it mark up/down live as TxLINE odds move — before the broadcast even confirms.
-4. **Exit** any time by selling back, or **hold**.
-5. **Each round**, TxLINE *proves* who advanced; eliminated outcomes settle to zero and their collateral redistributes to survivors.
-6. **Final** — winning-outcome holders redeem for a share of the pool; the protocol takes a small fee.
+Program id (devnet): `EbYmsXdALmF4GHY5JQT2Rv5fqC2Nws2qFcnh4B1QXE3U`.
+
+## How settlement works
+
+1. TxLINE hashes every scores update into a Merkle tree and posts a **daily root**
+   to Solana (a PDA under the `Txoracle` program).
+2. A settler (anyone, or the autonomous keeper) fetches the stat + Merkle proof for
+   the finished fixture and calls `settle_round`.
+3. In `PROOF` mode, `settle_round` **rebuilds the advancement predicate on-chain**
+   from the outcome's stored `participant_slot`, **pins the stat keys** (full-game
+   goals `1`/`2`, penalty-shootout goals `6001`/`6002`), and relays
+   `Txoracle.validate_stat_v2` as a CPI. The elimination applies only if the CPI
+   returns `true`.
+4. Because the *program* decides the predicate, settlement is permissionless yet a
+   caller can only eliminate the team that actually **lost**.
+
+**Shootout correctness:** full-game goal stats exclude shootout goals, so a knockout
+level at full time went to penalties. Bracket Bond then proves the shootout winner
+with the PE keys `6001`/`6002` — the case nearly every rival mis-handles.
+
+## Architecture
+
+```
+Anchor program (programs/bracket-bond)   single-pot parimutuel market;
+  initialize · create_market · add_outcome · update_mark · buy · sell ·
+  settle_round (proof CPI + on-chain predicate binding) · finalize · redeem
+        |
+        +-- CPI --> Txoracle.validate_stat_v2 (TxLINE daily Merkle root)
+        |
+TxLINE client (scripts/txline)   auth · subscribe · odds/scores SSE ·
+  stat-validation · determineAdvancement (shootout-aware)
+        |
+Autonomous keeper (scripts/agent/keeper.ts)   watches finished fixtures ->
+  determineAdvancement -> permissionless settle_round -> finalize
+        |
+Frontend (app/)   Next.js + Tailwind + framer-motion; markets, trade sheet,
+  proof receipts, Judge Mode, charts, and an AI-pundit chat (server-side key)
+```
+
+## Features
+
+- **Single-pot parimutuel** market with a solvency invariant (the vault never
+  underpays); buy at an oracle-priced mark, **exit anytime** at the live mark.
+- **Proof-enforced, permissionless settlement** with on-chain predicate + stat-key
+  binding.
+- **Shootout-aware** advancement (regulation / ET / penalties).
+- **Autonomous keeper** — settles the instant a proof exists (deterministic; no LLM
+  in the settlement path).
+- **AI-pundit** chat grounded on TxLINE data + settlement (OpenAI, server-side key).
+- **Judge Mode** — inspect any settled round: proof → CPI → elimination → bracket.
+- Professional dark UI with live marks, proof-reveal animations, and mark-history +
+  usage charts.
+
+## Quickstart
+
+**Backend / on-chain** (Rust, Agave/Solana ≥ 4.0.2, Anchor 0.31, Node 20+, pnpm):
+
+```bash
+git clone https://github.com/yukitran03/bracket-bond && cd bracket-bond
+pnpm install
+cp .env.example .env            # ANCHOR_WALLET, cluster, KEEPER_MARKET_IDS
+anchor build                    # regenerates target/idl/bracket_bond.json
+anchor test                     # 2 passing (solvency asserts)
+pnpm replay                     # full-loop demo (deploy or local validator first)
+pnpm settle:proof               # full on-chain PROOF settle on a real WC fixture
+pnpm keeper                     # autonomous keeper
+```
+
+**Frontend** (runs on mock data — no wallet/chain needed to explore):
+
+```bash
+pnpm -C app install
+cp app/.env.local.example app/.env.local   # optional: OPENAI_API_KEY for the pundit
+pnpm -C app dev                            # http://localhost:3000
+```
+
+Full verification steps + the copy-paste agent prompt: **[`docs/AGENT-HANDOFF.md`](docs/AGENT-HANDOFF.md)**.
 
 ## Repo layout
 
-```
-bracket-bond/
-├── AGENTS.md                   # Orientation for an AI agent working on the repo
-├── docs/
-│   ├── spec.md                 # Product spec (refined PRD)
-│   ├── architecture.md         # System design, on-chain accounts, data flow, solvency
-│   ├── txline-integration.md   # Exact TxLINE endpoints + validateStat CPI (verified)
-│   ├── SETUP.md                # Toolchain, build, test, deploy, run
-│   ├── TESTING.md              # Verification runbook (tiers + expected results)
-│   └── ROADMAP.md              # Remaining work (P0/P1/P2) + acceptance criteria
-├── programs/bracket-bond/      # Solana Anchor program (Rust) — the market + settlement
-├── scripts/
-│   ├── txline/                 # TxLINE client: auth, odds/scores SSE, stat-validation
-│   └── replay/                 # Replay a real knockout run through the contract (demo)
-├── app/                        # Frontend (Next.js + wallet adapter) — market UI
-├── fixtures/                   # Cached feeds for the deterministic replay demo
-└── tests/                      # Anchor / integration tests
-```
+| Path | What |
+|---|---|
+| `programs/bracket-bond/` | Anchor program (Rust) |
+| `scripts/txline/` | TxLINE client + `settle:proof` driver |
+| `scripts/agent/keeper.ts` | Autonomous settlement keeper |
+| `scripts/replay/` | Replay-driven demo |
+| `tests/` | `anchor test` (solvency + exit) |
+| `app/` | Next.js frontend + AI-pundit route |
+| `docs/` | testing, handoff, demo, roadmap |
+| `docs-site/` | Fumadocs documentation site |
 
-## Quick start
+## Security & compliance
 
-> Prereqs: Rust 1.96+, Solana CLI 1.17+, Anchor 0.31+, Node 20+.
-
-```bash
-# 1. Install JS deps
-pnpm install            # or: npm install
-
-# 2. Build the program
-anchor build
-
-# 3. Run the local validator + tests
-anchor test
-
-# 4. Deploy to devnet (play-money — see docs/architecture.md §Compliance)
-anchor deploy --provider.cluster devnet
-
-# 5. Run the replay demo (streams a cached knockout run through the market)
-pnpm replay -- --market race-to-final --team BRA
-```
-
-Configure TxLINE access in `.env` (copy `.env.example`). TxLINE's **free tier covers the World Cup**, so no token purchase is needed for this build.
-
-## Status
-
-This repository is scaffolded as the hackathon build kit: **docs + on-chain program + TxLINE client + replay harness**. See `docs/architecture.md` §Build order and the issue checklist for what is implemented vs. in-progress. Settlement uses **play-money / devnet** for the submission; the USDC/mainnet path is described in the docs only (see §Compliance).
+- Play-money / **devnet only**. Bracket Bond escrows **native SOL** — the TxL token
+  is never staked (hackathon rule).
+- Settlement data comes from **TxLINE only** (see `AGENTS.md`).
+- Secrets (TxLINE tokens, `OPENAI_API_KEY`) stay **server-side** in gitignored
+  `.env` files — never in the client bundle.
 
 ## License
 
-MIT — see [LICENSE](./LICENSE).
+MIT.
