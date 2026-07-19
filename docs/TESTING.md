@@ -4,6 +4,12 @@ A self-contained guide to verify Bracket Bond end-to-end. Written so another
 person (or agent) on a capable machine can run it and report results. Do the
 tiers in order; each says what to run and **what a pass looks like**.
 
+> **Verifying the backend + on-chain logic (not the UI)?** Start with
+> **`docs/AGENT-HANDOFF.md`** — it has a copy-paste agent prompt, the ordered
+> backend/on-chain checklist (incl. the permissionless + adversarial + shootout +
+> keeper + solvency tests), and the reporting format. This file is the granular
+> reference it points back to.
+
 Prereqs: see `docs/SETUP.md` §1 (Rust, **Solana CLI ≥ 1.18**, Anchor 0.31, Node 20+, pnpm).
 
 ```bash
@@ -129,6 +135,85 @@ the failing log so they can be reconciled against the vendored IDL.
 
 ---
 
+## Tier 4 — Permissionless settle + keeper + AI-pundit + new UI (latest work)
+
+> **Program change to know:** `add_outcome` now takes a trailing `participant_slot`
+> (`0`/`1` = which participant this team is in its fixture), `Outcome` stores it,
+> and `settle_round`/`finalize` renamed the signer account `oracle_authority →
+> settler`. Re-run `anchor build` to regenerate `target/idl/bracket_bond.json`
+> (the callers + tests already pass the new arg). **Copy the fresh IDL to
+> `app/public/idl/bracket_bond.json`** for live frontend reads.
+
+### 4a — Permissionless PROOF settle from a NON-authority wallet
+
+This is the trust win: in PROOF mode, settlement is open to anyone for a
+fixture-bound outcome. The program pins the fixture + stat keys and **builds the
+advancement predicate itself**, so a caller can only eliminate the team that
+actually lost — never the winner.
+
+```bash
+# Deploy fresh (PROOF-mode Config), then settle with a wallet that is NOT the
+# oracle authority:
+ANCHOR_WALLET=<some_other_funded_keypair.json> \
+  ANCHOR_PROVIDER_URL=https://api.devnet.solana.com pnpm settle:proof
+```
+
+**Pass:** `outcome N status = 1 (eliminated)` with a settler ≠ the config's
+`oracle_authority`. **Adversarial check (should FAIL):** point `outcome` at the
+*winning* team's PDA and relay any true proof for that fixture → the tx must
+revert (the program rebuilds "opponent advanced", which is false for the winner).
+**CU note:** the on-chain parse + predicate rebuild runs alongside the ~1.4M-CU
+`validateStatV2` CPI — confirm the tx fits the compute budget; bump the
+`setComputeUnitLimit` preInstruction if needed.
+
+### 4b — Autonomous keeper (auto-settle)
+
+```bash
+ANCHOR_WALLET=<keeper.json> ANCHOR_PROVIDER_URL=https://api.devnet.solana.com \
+  KEEPER_MARKET_IDS=<marketId> pnpm keeper
+```
+
+Long-lived worker: watches TxLINE for finished fixtures (`game_finalised` seq),
+runs `determineAdvancement` (shootout-aware), and submits the permissionless
+`settle_round` for any alive outcome whose fixture is decided; finalises when one
+team remains. **Pass:** with a PROOF-mode market whose outcomes are bound to a
+finished fixture, the keeper logs `⚑ settled market … outcome …` (and `🏁
+finalised …` at the end) without being the authority. It pre-checks each proof
+via `.view()`, so it never pays for a settle that would revert. Settlement is
+deterministic — no LLM in that path.
+
+### 4c — AI-pundit chat
+
+```bash
+cp app/.env.local.example app/.env.local     # then set OPENAI_API_KEY (server-side)
+pnpm -C app dev                               # open http://localhost:3000
+```
+
+Click the ✦ button (bottom-right). **Pass:** the pundit answers questions about
+the markets, TxLINE, shootout settlement, and permissionless settle, grounded in
+its read-only tools (`getMarketState` / `getSettlements` / `explainConcept`).
+Without `OPENAI_API_KEY` it returns a friendly 501 and the rest of the app is
+unaffected. **Security:** the key is read only in `app/app/api/pundit/route.ts`
+(server) — confirm it never appears in the client bundle (`grep -r sk- app/.next/static` → nothing).
+
+### 4d — The new professional UI
+
+```bash
+pnpm -C app install
+pnpm -C app build        # must be green (9 routes)
+pnpm -C app dev
+```
+
+**Pass (mock, no chain needed):** Landing → Markets → **Race to the Final** detail
+renders outcome rows with animated marks, a bracket, and a settlement feed; the
+**Replay a settlement** button plays the proof-reveal (check-draw + confetti +
+toast); Activity opens the **Proof Receipt** for the real devnet tx `65jgF1VB…`;
+**Judge Mode** walks proof → CPI → elimination → bracket; the pundit widget opens.
+**Live:** copy the built IDL to `app/public/idl/bracket_bond.json`, set
+`app/.env.local` to a deployed market, connect Phantom → Buy/Exit send real txns.
+
+---
+
 ## P1 — sell/exit + live frontend (added 2026-07-13; re-run to confirm)
 
 After `git pull` + `pnpm install` (root and `app/`):
@@ -164,6 +249,11 @@ After `git pull` + `pnpm install` (root and `app/`):
 | Proof-enforced settlement (validateStatV2) | `pnpm txline:demo` → clean bool | 3 ✅ verified live on WC fixture 18213979 |
 | `sell` / exit-anytime | `anchor test` (2nd test) + replay exit line | 1–2 |
 | Frontend live reads/buy/exit | `app` tsc + `next build`; live needs a deployed market + IDL | 0 / 2 |
+| **Permissionless PROOF settle** (non-authority) | `pnpm settle:proof` from a non-authority wallet | 4a |
+| **Predicate binding** (can't eliminate the winner) | adversarial settle reverts | 4a |
+| **Autonomous keeper** (auto-settle + finalize) | `pnpm keeper` logs `⚑ settled …` | 4b |
+| **AI-pundit chat** (grounded, server-side key) | `app` dev + ✦ widget answers | 4c |
+| **Professional UI** (6 pages + Judge + proof reveal) | `next build` green; mock demo runs offline | 4d |
 
 ## Reporting
 

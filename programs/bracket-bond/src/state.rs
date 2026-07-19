@@ -83,6 +83,12 @@ pub struct Outcome {
     /// this fixture, so an oracle can't prove match A but eliminate a team from
     /// match B. `0` = unbound (TRUSTED_ORACLE demos/tests).
     pub expected_fixture_id: u64,
+    /// Which participant this team is in `expected_fixture_id`: `0` = participant
+    /// 1 (goals stat key 1 / PE key 6001), `1` = participant 2 (keys 2 / 6002).
+    /// Permissionless PROOF settlement builds the advancement predicate from this,
+    /// forcing the relayed proof to prove *the opponent* advanced — so a caller
+    /// can eliminate only the team that actually lost, never the winner.
+    pub participant_slot: u8,
     pub bump: u8,
 }
 

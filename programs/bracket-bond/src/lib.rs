@@ -20,14 +20,176 @@ use state::*;
 
 declare_id!("EbYmsXdALmF4GHY5JQT2Rv5fqC2Nws2qFcnh4B1QXE3U");
 
-/// Minimal borsh view of the leading fields of a `validateStatV2` instruction's
-/// data, used to bind a relayed proof to a fixture. Layout after the 8-byte
-/// instruction discriminator: `ts: i64`, then `fixture_summary.fixture_id: u64`.
-#[derive(AnchorDeserialize)]
-struct ProofHeader {
-    #[allow(dead_code)]
-    ts: i64,
-    fixture_id: u64,
+// TxLINE full-game goal stat keys (participant 1 / 2) and penalty-shootout goal
+// keys. Mirrors `scripts/txline/statValidation.ts`. Full-game goals exclude
+// shootout goals, so a knockout level at full time went to penalties.
+const KEY_GOALS_P1: u32 = 1;
+const KEY_GOALS_P2: u32 = 2;
+const KEY_PE_P1: u32 = 6001;
+const KEY_PE_P2: u32 = 6002;
+
+// `Txoracle` borsh enum discriminators (see `scripts/txline/idl/txoracle.json`).
+const CMP_GREATER_THAN: u8 = 0; // Comparison::GreaterThan
+const CMP_EQUAL_TO: u8 = 2; // Comparison::EqualTo
+const BINARY_PREDICATE: u8 = 1; // StatPredicate::Binary
+const OP_SUBTRACT: u8 = 1; // BinaryExpression::Subtract
+const PROOF_NODE_LEN: usize = 33; // [u8; 32] hash + bool is_right_sibling
+
+/// A bounds-checked forward cursor over a `validateStatV2` instruction's borsh
+/// bytes. Every read returns `ProofFailed` on truncation rather than panicking,
+/// so a malformed relay can never abort the program uncleanly.
+struct Cursor<'a> {
+    data: &'a [u8],
+    pos: usize,
+}
+
+impl<'a> Cursor<'a> {
+    fn new(data: &'a [u8]) -> Self {
+        Self { data, pos: 0 }
+    }
+    fn skip(&mut self, n: usize) -> Result<()> {
+        self.pos = self.pos.checked_add(n).ok_or(BracketError::ProofFailed)?;
+        require!(self.pos <= self.data.len(), BracketError::ProofFailed);
+        Ok(())
+    }
+    fn read_u32(&mut self) -> Result<u32> {
+        let end = self.pos.checked_add(4).ok_or(BracketError::ProofFailed)?;
+        require!(end <= self.data.len(), BracketError::ProofFailed);
+        let v = u32::from_le_bytes(self.data[self.pos..end].try_into().unwrap());
+        self.pos = end;
+        Ok(v)
+    }
+    fn read_i64(&mut self) -> Result<i64> {
+        let end = self.pos.checked_add(8).ok_or(BracketError::ProofFailed)?;
+        require!(end <= self.data.len(), BracketError::ProofFailed);
+        let v = i64::from_le_bytes(self.data[self.pos..end].try_into().unwrap());
+        self.pos = end;
+        Ok(v)
+    }
+    /// Skip a `Vec<ProofNode>`: a u32 length prefix then `len * 33` bytes.
+    fn skip_proof_vec(&mut self) -> Result<()> {
+        let len = self.read_u32()? as usize;
+        self.skip(len.checked_mul(PROOF_NODE_LEN).ok_or(BracketError::ProofFailed)?)
+    }
+}
+
+/// Parse a relayed `validateStatV2` payload, bind it to `expected_fixture`, pin
+/// the stat keys to the canonical advancement layout, and replace whatever
+/// strategy the caller supplied with a program-built predicate that proves *the
+/// opponent of `slot` advanced*. Returns the rebuilt instruction data.
+///
+/// This is what makes PROOF settlement safe to open to anyone: the program —
+/// not the caller — decides the predicate, so a permissionless settler can only
+/// eliminate the team that actually lost the bound fixture, never the winner.
+///
+/// Layout after the 8-byte discriminator (see `StatValidationInput` in the IDL):
+/// `ts: i64` | `fixture_summary` (60) | `fixture_proof: Vec<ProofNode>` |
+/// `main_tree_proof: Vec<ProofNode>` | `event_stat_root: [u8;32]` |
+/// `stats: Vec<StatLeaf>` | `strategy`.
+fn bind_advancement_proof(data: &[u8], expected_fixture: u64, slot: u8) -> Result<Vec<u8>> {
+    require!(slot <= 1, BracketError::InvalidParticipantSlot);
+    let mut c = Cursor::new(data);
+    c.skip(8)?; // instruction discriminator
+    c.skip(8)?; // payload.ts
+    let fixture_id = c.read_i64()?; // fixture_summary.fixture_id
+    require!(fixture_id as u64 == expected_fixture, BracketError::FixtureMismatch);
+    // rest of fixture_summary: update_stats (u32 + i64 + i64 = 20) + root (32).
+    c.skip(20 + 32)?;
+    c.skip_proof_vec()?; // fixture_proof
+    c.skip_proof_vec()?; // main_tree_proof
+    c.skip(32)?; // event_stat_root
+    let n_stats = c.read_u32()? as usize;
+    let mut keys: Vec<u32> = Vec::with_capacity(n_stats);
+    for _ in 0..n_stats {
+        let key = c.read_u32()?; // stat.key
+        c.skip(8)?; // stat.value (i32) + stat.period (i32)
+        c.skip_proof_vec()?; // stat_proof
+        keys.push(key);
+    }
+    let payload_end = c.pos;
+
+    let strategy = canonical_advancement_strategy(&keys, slot)?;
+    let mut out = Vec::with_capacity(payload_end + strategy.len());
+    out.extend_from_slice(&data[..payload_end]);
+    out.extend_from_slice(&strategy);
+    Ok(out)
+}
+
+/// Borsh-encode the `NDimensionalStrategy` proving that the opponent of `slot`
+/// advanced, pinning the stat keys to the canonical order. Two stats ⇒ decided
+/// in regulation/ET (keys 1,2); four stats ⇒ penalty shootout (keys 1,2,6001,6002).
+fn canonical_advancement_strategy(keys: &[u32], slot: u8) -> Result<Vec<u8>> {
+    let this = slot; // this outcome's team (the one being eliminated)
+    let opp = 1 - slot; // its opponent — the one the proof must show advanced
+    let mut s: Vec<u8> = Vec::new();
+    s.extend_from_slice(&0u32.to_le_bytes()); // geometric_targets: empty vec
+    s.push(0); // distance_predicate: None
+    match keys.len() {
+        2 => {
+            require!(
+                keys[0] == KEY_GOALS_P1 && keys[1] == KEY_GOALS_P2,
+                BracketError::StatKeyMismatch
+            );
+            s.extend_from_slice(&1u32.to_le_bytes()); // 1 discrete predicate
+            push_binary(&mut s, opp, this, CMP_GREATER_THAN); // goals_opp − goals_this > 0
+        }
+        4 => {
+            require!(
+                keys[0] == KEY_GOALS_P1
+                    && keys[1] == KEY_GOALS_P2
+                    && keys[2] == KEY_PE_P1
+                    && keys[3] == KEY_PE_P2,
+                BracketError::StatKeyMismatch
+            );
+            s.extend_from_slice(&2u32.to_le_bytes()); // 2 discrete predicates
+            push_binary(&mut s, opp, this, CMP_EQUAL_TO); // level at full time
+            push_binary(&mut s, 2 + opp, 2 + this, CMP_GREATER_THAN); // pe_opp − pe_this > 0
+        }
+        _ => return err!(BracketError::StatKeyMismatch),
+    }
+    Ok(s)
+}
+
+/// Push one `StatPredicate::Binary { index_a, index_b, op: Subtract,
+/// predicate: { threshold: 0, comparison } }` in borsh form.
+fn push_binary(s: &mut Vec<u8>, index_a: u8, index_b: u8, comparison: u8) {
+    s.push(BINARY_PREDICATE);
+    s.push(index_a);
+    s.push(index_b);
+    s.push(OP_SUBTRACT);
+    s.extend_from_slice(&0i32.to_le_bytes()); // predicate.threshold
+    s.push(comparison); // predicate.comparison
+}
+
+/// Relay a (rebuilt) `validateStatV2` instruction to `Txoracle` and require it
+/// to return `true` — the proof must verify against the on-chain daily root.
+fn relay_validate<'info>(
+    txoracle_program: &AccountInfo<'info>,
+    remaining_accounts: &[AccountInfo<'info>],
+    data: Vec<u8>,
+    config_txoracle: Pubkey,
+) -> Result<()> {
+    require_keys_eq!(txoracle_program.key(), config_txoracle, BracketError::BadOracleProgram);
+    let metas: Vec<AccountMeta> = remaining_accounts
+        .iter()
+        .map(|a| AccountMeta {
+            pubkey: *a.key,
+            is_signer: a.is_signer,
+            is_writable: a.is_writable,
+        })
+        .collect();
+    let ix = Instruction {
+        program_id: txoracle_program.key(),
+        accounts: metas,
+        data,
+    };
+    let mut infos = remaining_accounts.to_vec();
+    infos.push(txoracle_program.clone());
+    invoke(&ix, &infos)?;
+    let (ret_program, ret_data) = get_return_data().ok_or(BracketError::ProofFailed)?;
+    require_keys_eq!(ret_program, config_txoracle, BracketError::BadOracleProgram);
+    require!(ret_data.first() == Some(&1u8), BracketError::ProofFailed);
+    Ok(())
 }
 
 #[program]
@@ -89,6 +251,7 @@ pub mod bracket_bond {
         team_id: u32,
         initial_mark: u32,
         expected_fixture_id: u64,
+        participant_slot: u8,
     ) -> Result<()> {
         require!(
             ctx.accounts.market.status == market_status::OPEN,
@@ -98,6 +261,7 @@ pub mod bracket_bond {
             (initial_mark as u128) >= 1 && (initial_mark as u128) <= MARK_SCALE,
             BracketError::InvalidMark
         );
+        require!(participant_slot <= 1, BracketError::InvalidParticipantSlot);
         let outcome = &mut ctx.accounts.outcome;
         outcome.market = ctx.accounts.market.key();
         outcome.index = index;
@@ -106,6 +270,7 @@ pub mod bracket_bond {
         outcome.mark = initial_mark;
         outcome.shares_outstanding = 0;
         outcome.expected_fixture_id = expected_fixture_id;
+        outcome.participant_slot = participant_slot;
         outcome.bump = ctx.bumps.outcome;
 
         let market = &mut ctx.accounts.market;
@@ -238,62 +403,53 @@ pub mod bracket_bond {
 
     /// Eliminate an outcome for the current round.
     ///
-    /// In `PROOF` mode this relays a `Txoracle.validateStat` CPI (built by the
-    /// client from `/api/scores/stat-validation`) using `remaining_accounts`;
-    /// the CPI fails if the proof does not verify against the on-chain root, so
-    /// an unproven elimination cannot be applied. In `TRUSTED_ORACLE` mode the
-    /// configured oracle authority signs directly (replay/demo/tests).
+    /// Authority model, by `settlement_mode`:
+    /// - `TRUSTED_ORACLE`: the configured oracle authority signs directly
+    ///   (replay/demo/tests).
+    /// - `PROOF`, outcome bound to a fixture (`expected_fixture_id != 0`):
+    ///   **permissionless** — anyone may settle. The program pins the fixture and
+    ///   stat keys and builds the advancement predicate itself, so the relayed
+    ///   `Txoracle.validateStatV2` proof can only eliminate the team that lost.
+    /// - `PROOF`, unbound outcome (`expected_fixture_id == 0`): no binding is
+    ///   possible, so it falls back to the oracle authority (legacy pairing).
     pub fn settle_round<'info>(
         ctx: Context<'_, '_, '_, 'info, SettleRound<'info>>,
         validate_ix_data: Vec<u8>,
     ) -> Result<()> {
         let config = &ctx.accounts.config;
-        require_keys_eq!(
-            ctx.accounts.oracle_authority.key(),
-            config.oracle_authority,
-            BracketError::Unauthorized
-        );
 
         if config.settlement_mode == state::settlement_mode::PROOF {
-            require_keys_eq!(
-                ctx.accounts.txoracle_program.key(),
-                config.txoracle_program,
-                BracketError::BadOracleProgram
-            );
-            let metas: Vec<AccountMeta> = ctx
-                .remaining_accounts
-                .iter()
-                .map(|a| AccountMeta {
-                    pubkey: *a.key,
-                    is_signer: a.is_signer,
-                    is_writable: a.is_writable,
-                })
-                .collect();
-            let ix = Instruction {
-                program_id: ctx.accounts.txoracle_program.key(),
-                accounts: metas,
-                data: validate_ix_data,
-            };
-            let mut infos = ctx.remaining_accounts.to_vec();
-            infos.push(ctx.accounts.txoracle_program.to_account_info());
-            // Errors here if the CPI itself fails. `validateStat` returns a bool
-            // via return-data, so we must also require that bool to be `true`.
-            invoke(&ix, &infos)?;
-            let (ret_program, ret_data) = get_return_data().ok_or(BracketError::ProofFailed)?;
-            require_keys_eq!(ret_program, config.txoracle_program, BracketError::BadOracleProgram);
-            require!(ret_data.first() == Some(&1u8), BracketError::ProofFailed);
-
-            // Bind the proof to THIS outcome's fixture: the relayed proof must be
-            // for the fixture that decides this outcome's round. Without this an
-            // oracle could prove match A but eliminate a team from match B.
             let expected = ctx.accounts.outcome.expected_fixture_id;
-            if expected != 0 {
-                // `ix.data` now owns the validateStat instruction bytes.
-                require!(ix.data.len() >= 24, BracketError::ProofFailed);
-                let header = ProofHeader::deserialize(&mut &ix.data[8..])
-                    .map_err(|_| BracketError::ProofFailed)?;
-                require!(header.fixture_id == expected, BracketError::FixtureMismatch);
-            }
+            let data = if expected != 0 {
+                // Bound → permissionless. Rebind the proof to this fixture and
+                // force the predicate to "the opponent of this outcome advanced".
+                bind_advancement_proof(
+                    &validate_ix_data,
+                    expected,
+                    ctx.accounts.outcome.participant_slot,
+                )?
+            } else {
+                // Unbound → require the oracle authority; relay as supplied.
+                require_keys_eq!(
+                    ctx.accounts.settler.key(),
+                    config.oracle_authority,
+                    BracketError::Unauthorized
+                );
+                validate_ix_data
+            };
+            relay_validate(
+                &ctx.accounts.txoracle_program.to_account_info(),
+                ctx.remaining_accounts,
+                data,
+                config.txoracle_program,
+            )?;
+        } else {
+            // TRUSTED_ORACLE: only the configured oracle authority may settle.
+            require_keys_eq!(
+                ctx.accounts.settler.key(),
+                config.oracle_authority,
+                BracketError::Unauthorized
+            );
         }
 
         let market = &mut ctx.accounts.market;
@@ -317,12 +473,18 @@ pub mod bracket_bond {
     }
 
     /// Mark the sole surviving outcome as the winner and resolve the market.
+    ///
+    /// Permissionless in `PROOF` mode (the outcome is deterministic once a single
+    /// outcome remains alive); oracle-authority-gated in `TRUSTED_ORACLE`.
     pub fn finalize(ctx: Context<Finalize>) -> Result<()> {
-        require_keys_eq!(
-            ctx.accounts.oracle_authority.key(),
-            ctx.accounts.config.oracle_authority,
-            BracketError::Unauthorized
-        );
+        let config = &ctx.accounts.config;
+        if config.settlement_mode == state::settlement_mode::TRUSTED_ORACLE {
+            require_keys_eq!(
+                ctx.accounts.settler.key(),
+                config.oracle_authority,
+                BracketError::Unauthorized
+            );
+        }
         let market = &mut ctx.accounts.market;
         require!(market.status == market_status::OPEN, BracketError::MarketNotOpen);
         require!(market.alive_count == 1, BracketError::NotFinalizable);
@@ -568,7 +730,10 @@ pub struct SettleRound<'info> {
     pub market: Account<'info, Market>,
     #[account(mut, constraint = outcome.market == market.key() @ BracketError::Unauthorized)]
     pub outcome: Account<'info, Outcome>,
-    pub oracle_authority: Signer<'info>,
+    /// The settler. In PROOF mode with a bound outcome this is permissionless
+    /// (anyone); in TRUSTED_ORACLE or for an unbound outcome it must equal
+    /// `config.oracle_authority` (enforced in the handler).
+    pub settler: Signer<'info>,
     /// CHECK: verified against `config.txoracle_program` in PROOF mode; unused otherwise.
     pub txoracle_program: UncheckedAccount<'info>,
     // remaining_accounts: the accounts required by Txoracle.validateStat (PROOF mode).
@@ -582,7 +747,9 @@ pub struct Finalize<'info> {
     pub market: Account<'info, Market>,
     #[account(mut, constraint = outcome.market == market.key() @ BracketError::Unauthorized)]
     pub outcome: Account<'info, Outcome>,
-    pub oracle_authority: Signer<'info>,
+    /// Permissionless in PROOF mode; must equal `config.oracle_authority` in
+    /// TRUSTED_ORACLE (enforced in the handler).
+    pub settler: Signer<'info>,
 }
 
 #[derive(Accounts)]

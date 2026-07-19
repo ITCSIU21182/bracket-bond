@@ -55,8 +55,11 @@ submission, **P1** = makes it strong, **P2** = polish/nice-to-have.
 ## P2 — polish
 
 - [ ] **Proof-receipt collectible:** mint each settled round's proof as a shareable NFT.
-- [ ] AI-pundit / notifications on big odds shifts (display only — no settlement).
-- [ ] Nicer UI (team will redesign).
+- [x] **AI-pundit** — DONE: a grounded chat (`app/app/api/pundit`, Vercel AI SDK +
+      gpt-4o-mini, read-only tools, server-side key) explains markets/TxLINE/settlement.
+- [x] **Professional UI** — DONE: full rebuild (Tailwind + framer-motion) — Landing,
+      Markets, Market detail, Portfolio, Activity + Proof Receipt, Judge Mode, and
+      the pundit widget, with the signature proof-reveal / mark-ticker motion.
 
 ---
 
@@ -89,19 +92,24 @@ match). What's left is the full loop + packaging:
 - [ ] **Compliance check**: play-money/devnet only; no real TxLINE data committed
       (✓ synthetic fixtures); confirm the brief permits AI-assisted code.
 
-**Trustless binding (done + next):** `settle_round` now binds the relayed proof to
-each outcome's `expected_fixture_id` (parses the fixture id from the validateStat
-data, requires a match) — an oracle can't prove match A and eliminate a team from
-match B. Remaining hardening: build the predicate strategy on-chain and pin each
-stat key to a fixed index (ShroudLine's model) so the *predicate* is program-enforced
-too. Every settlement now emits a `RoundSettled` event (live feed + indexing).
+**Trustless binding (DONE):** `settle_round` (PROOF mode) binds the relayed proof
+to each outcome end to end — it requires `expected_fixture_id` to match, **pins the
+stat keys** to the canonical advancement layout, and **rebuilds the predicate
+on-chain** from the outcome's `participant_slot` (proving *the opponent advanced*),
+discarding the caller's strategy. Because the program decides the predicate,
+settlement is now **permissionless** (anyone / the keeper can settle a bound
+outcome) while a caller can only eliminate the team that actually lost. Every
+settlement emits a `RoundSettled` event (live feed + indexing). Verify on devnet
+per `docs/TESTING.md` Tier 4a (incl. the adversarial "can't eliminate the winner"
+check + CU budget).
 
 ## What's next (pitch "v2" — rides 2026 trends)
 
-- **Autonomous auto-settler + market-maker agent:** turn the relayer into an agent
-  that arbs marks vs live odds and auto-settles the instant a proof exists — reaches
-  into the **Trading Tools & Agents** track ($16K) and the 2026 agents narrative
-  (packageable as an ElizaOS plugin).
+- **Autonomous auto-settler agent — SHIPPED** (`scripts/agent/keeper.ts`): a
+  long-lived worker that watches TxLINE and auto-settles the instant a proof exists,
+  permissionlessly. Next: add a market-maker leg that arbs marks vs live odds —
+  reaches into the **Trading Tools & Agents** track ($16K) and the 2026 agents
+  narrative (packageable as an ElizaOS plugin).
 - **x402 "settlement-as-a-service":** expose proof-settlement as an x402 endpoint so
   other Solana markets pay per-call to settle objectively — a hot 2026 agentic-payments
   primitive and a strong expansion story.
@@ -117,11 +125,14 @@ not a differentiator. Ranked plan to win:
       + penalties (PE keys 6001/6002). **Every rival punts on this** → our moat.
 - [ ] **Resolve a real shootout on devnet** (find a StatusId-13 fixture) — rivals
       only have synthetic tests.
-- [ ] **Judge Mode page** — inspectable proof → CPI settle tx → bracket (borrow
-      predict9ja's `/judge`).
-- [ ] **Keeper + permissionless `settle_round`** — auto-advance rounds (match
-      ShroudLine automation) and drop the authority gate (beat their gating).
-- [ ] **Keep TxLINE secrets server-side** — rivals leak JWT/API token in the client bundle.
+- [x] **Judge Mode page** — DONE: `/judge` walks proof → `validateStatV2` CPI →
+      elimination → bracket, with a Solscan link (`app/app/judge/page.tsx`).
+- [x] **Keeper + permissionless `settle_round`** — DONE: PROOF-mode settle is
+      permissionless with on-chain predicate binding; `scripts/agent/keeper.ts`
+      auto-advances rounds + finalises. Beats authority-gated rivals. (Devnet
+      verify: Tier 4a/4b.)
+- [x] **Keep TxLINE + OpenAI secrets server-side** — the keeper + the pundit route
+      (`app/app/api/pundit`) hold tokens server-side; nothing sensitive in the client bundle.
 - [ ] Live TxLINE **reference odds** beside the mark; optional small rake; Telegram
       settle alerts; commit-reveal privacy.
 

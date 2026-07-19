@@ -1,32 +1,176 @@
-:root {
-  --bg: #0b0e14;
-  --panel: #141922;
-  --line: #232a36;
-  --text: #e6e9ef;
-  --muted: #8a93a6;
-  --accent: #37d67a;
-  --danger: #ff5c72;
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+  }
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    background-color: #020315;
+    color: #e9eeff;
+    font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow-x: hidden;
+  }
+  .tnum {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+  ::selection {
+    background: rgba(0, 84, 250, 0.35);
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #1a3570;
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #24467f;
+  }
 }
 
-* { box-sizing: border-box; }
-html, body { margin: 0; padding: 0; }
-body {
-  background: var(--bg);
-  color: var(--text);
-  font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+@layer components {
+  /* Condensed display headings (Anton), always uppercase + tight. */
+  .display {
+    font-family: var(--font-display), "Arial Narrow", sans-serif;
+    text-transform: uppercase;
+    line-height: 0.9;
+    letter-spacing: -0.01em;
+    font-weight: 400;
+  }
+  /* DM Mono micro-labels / eyebrows. */
+  .eyebrow {
+    font-family: var(--font-mono), ui-monospace, monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.25em;
+    font-size: 11px;
+  }
+  /* APECHAIN icy-blue gradient text. */
+  .text-icy {
+    background: linear-gradient(107.73deg, #4785fc 0.84%, #80c8e6 91.15%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  /* Green→teal proof gradient text. */
+  .text-proof {
+    background: linear-gradient(100deg, #37d67a, #57b6b2);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  /* Flowing animated gradient text (footer wordmark). */
+  .text-flow {
+    background: linear-gradient(100deg, #37d67a, #4785fc, #57b6b2, #37d67a);
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  /* Blueprint grid backdrop. */
+  .bg-grid {
+    background-image: linear-gradient(rgba(71, 133, 252, 0.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(71, 133, 252, 0.06) 1px, transparent 1px);
+    background-size: 44px 44px;
+  }
+  /* Radial navy vignette (behind heroes/sections). */
+  .radial-navy {
+    background: radial-gradient(60% 60% at 50% 0%, rgba(15, 30, 62, 0.9), rgba(2, 3, 21, 0) 70%);
+  }
+  /* WC26 pixel-checker band (official brand device). */
+  .checker {
+    background-image: repeating-conic-gradient(#57b6b2 0% 25%, #001e61 0% 50%);
+    background-size: 14px 14px;
+  }
+  .checker-gold {
+    background-image: repeating-conic-gradient(#f5c451 0% 25%, #020315 0% 50%);
+    background-size: 14px 14px;
+  }
+  /* Concierge-style light sweep across a button on hover. */
+  .shine {
+    position: relative;
+    overflow: hidden;
+  }
+  .shine::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-130%) skewX(-18deg);
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+    transition: transform 0.65s ease;
+    pointer-events: none;
+  }
+  .shine:hover::after {
+    transform: translateX(130%) skewX(-18deg);
+  }
+  .shimmer {
+    position: relative;
+    overflow: hidden;
+  }
+  .shimmer::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.06), transparent);
+    animation: shimmer 1.6s infinite;
+  }
 }
-main { max-width: 720px; margin: 0 auto; padding: 40px 20px 80px; }
-h1 { font-size: 28px; margin: 0 0 4px; }
-.sub { color: var(--muted); margin: 0 0 28px; }
-.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 12px; }
-.row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.team { font-weight: 600; }
-.mark { font-variant-numeric: tabular-nums; font-size: 18px; }
-.pill { font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
-.pill.alive { color: var(--accent); border-color: var(--accent); }
-.pill.out { color: var(--danger); border-color: var(--danger); text-decoration: line-through; }
-button { background: var(--accent); color: #04110a; border: 0; border-radius: 8px; padding: 8px 14px; font-weight: 600; cursor: pointer; }
-button:disabled { opacity: .4; cursor: not-allowed; }
-.feed { font-size: 13px; color: var(--muted); }
-.feed b { color: var(--accent); }
-.note { font-size: 13px; color: var(--muted); border-left: 2px solid var(--line); padding-left: 12px; margin-top: 24px; }
+
+/* Wallet-adapter button → APECHAIN navy. */
+.wallet-adapter-button {
+  background: #0b1430 !important;
+  border: 1px solid #1a3570 !important;
+  border-radius: 12px !important;
+  height: 40px !important;
+  font-family: var(--font-mono), monospace !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  color: #e9eeff !important;
+  padding: 0 16px !important;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.wallet-adapter-button:not([disabled]):hover {
+  background: #111d43 !important;
+  border-color: #4785fc !important;
+}
+.wallet-adapter-button-trigger {
+  background: #0b1430 !important;
+}
+.wallet-adapter-dropdown-list {
+  background: #0b1430 !important;
+  border: 1px solid #1a3570 !important;
+}
+.wallet-adapter-modal-wrapper {
+  background: #0b1430 !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

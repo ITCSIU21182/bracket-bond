@@ -11,10 +11,12 @@
 //   ANCHOR_WALLET=<key> ANCHOR_PROVIDER_URL=https://api.devnet.solana.com \
 //     pnpm settle:proof            # or: pnpm settle:proof <fixtureId> <seq>
 //
-// NOTE (known limitation): settle_round requires the relayed proof to return
-// true but does not bind it to the eliminated outcome/fixture — the oracle
-// authority must pair them (this driver does). Hardening that binding is future
-// work (see docs/ROADMAP.md).
+// PERMISSIONLESS: because each outcome is bound to a fixture (expected_fixture_id)
+// and a participant slot, settle_round in PROOF mode is open to anyone — the
+// program pins the fixture + stat keys and builds the advancement predicate
+// itself, so a caller can only eliminate the team that actually lost. This
+// driver settles with the same wallet, but any signer works (see the keeper in
+// scripts/agent/keeper.ts and the non-authority test in docs/TESTING.md).
 
 import "dotenv/config";
 import * as anchor from "@coral-xyz/anchor";
@@ -89,8 +91,9 @@ async function main() {
     .accounts({ config, market, vault, authority: me, systemProgram: SystemProgram.programId })
     .rpc();
   for (const idx of [0, 1]) {
+    // participant_slot = idx: outcome 0 is participant 1, outcome 1 is participant 2.
     await program.methods
-      .addOutcome(idx, idx, 500000, new anchor.BN(fixtureId))
+      .addOutcome(idx, idx, 500000, new anchor.BN(fixtureId), idx)
       .accounts({ market, outcome: pda.outcome(market, idx), authority: me, systemProgram: SystemProgram.programId })
       .rpc();
   }
@@ -105,7 +108,7 @@ async function main() {
       config,
       market,
       outcome: pda.outcome(market, loser),
-      oracleAuthority: me,
+      settler: me,
       txoracleProgram: relay.txoracleProgram,
     })
     .remainingAccounts(relay.remainingAccounts)

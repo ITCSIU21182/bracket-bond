@@ -32,4 +32,8 @@ pub enum BracketError {
     FixtureMismatch,
     #[msg("Outcome pool has no shares to redeem against")]
     NoShares,
+    #[msg("Participant slot must be 0 or 1")]
+    InvalidParticipantSlot,
+    #[msg("Relayed proof stat keys are not the canonical advancement layout")]
+    StatKeyMismatch,
 }

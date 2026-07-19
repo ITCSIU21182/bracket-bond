@@ -1,0 +1,16 @@
+# Next.js
+.next/
+out/
+build/
+
+# deps
+node_modules/
+
+# env / secrets — never commit real keys
+.env
+.env*.local
+
+# misc
+*.tsbuildinfo
+next-env.d.ts
+.DS_Store

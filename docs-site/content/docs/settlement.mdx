@@ -101,13 +101,19 @@ a config flag, not a fork in the logic.
 
 ## Trustless binding
 
-`settle_round` doesn't just require the proof to return `true` — it also **binds
-the proof to this outcome's fixture on-chain**. Each `Outcome` stores an
-`expected_fixture_id`; `settle_round` parses the fixture id out of the relayed
-`validateStatV2` data and requires it to match before eliminating. So an oracle
-can't prove match A and eliminate a team from match B — the fixture is pinned, and
-every settlement emits a `RoundSettled` event for the live feed.
+`settle_round` doesn't just require the proof to return `true` — it **binds the
+proof to this outcome on-chain, end to end**. Each `Outcome` stores an
+`expected_fixture_id` and a `participant_slot` (which of the two teams it is). In
+PROOF mode `settle_round` parses the relayed `validateStatV2` payload, requires the
+fixture id to match, **pins the stat keys** to the canonical advancement layout
+(goals `1`/`2`, penalties `6001`/`6002`), and **discards the caller's predicate and
+rebuilds it on-chain** — proving specifically that *the opponent of this outcome
+advanced*. Every settlement emits a `RoundSettled` event for the live feed.
 
-The next hardening (following ShroudLine's model): build the predicate strategy
-on-chain and pin each stat key to a fixed index, so the *predicate* — not just the
-fixture — is program-enforced. Tracked in the roadmap.
+Because the program — not the caller — decides the predicate, settlement is
+**permissionless**: anyone (or the autonomous keeper) can settle a bound outcome in
+PROOF mode, yet the only team they can eliminate is the one that actually lost.
+Trying to eliminate the winner rebuilds "the loser advanced", which is false, and
+the CPI reverts. This is the ShroudLine hardening model, applied to a real
+tradeable market. (`update_mark` stays oracle-gated — it only prices trades, never
+settles.)

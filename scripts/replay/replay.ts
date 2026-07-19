@@ -51,7 +51,7 @@ async function main() {
 
   for (const o of run.outcomes) {
     await program.methods
-      .addOutcome(o.index, o.teamId, o.initialMark, new anchor.BN(0))
+      .addOutcome(o.index, o.teamId, o.initialMark, new anchor.BN(0), 0)
       .accounts({
         market,
         outcome: pda.outcome(market, o.index),
@@ -99,7 +99,7 @@ async function main() {
         config,
         market,
         outcome: pda.outcome(market, round.eliminate),
-        oracleAuthority: wallet,
+        settler: wallet,
         txoracleProgram: SystemProgram.programId,
       })
       .rpc();
@@ -131,7 +131,7 @@ async function main() {
   // 5) Finalize + redeem the winner.
   await program.methods
     .finalize()
-    .accounts({ config, market, outcome: pda.outcome(market, run.winner), oracleAuthority: wallet })
+    .accounts({ config, market, outcome: pda.outcome(market, run.winner), settler: wallet })
     .rpc();
   log(`\n• finalized — winner is outcome ${run.winner}`);
 

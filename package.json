@@ -8,6 +8,7 @@
     "replay": "tsx scripts/replay/replay.ts",
     "txline:demo": "tsx scripts/txline/index.ts",
     "settle:proof": "tsx scripts/txline/settle-proof.ts",
+    "keeper": "tsx scripts/agent/keeper.ts",
     "test": "anchor test",
     "test:unit": "ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
   },

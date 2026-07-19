@@ -42,7 +42,7 @@ describe("bracket-bond", () => {
       [1, 300000],
     ] as const) {
       await program.methods
-        .addOutcome(index, 1000 + index, mark, new anchor.BN(0))
+        .addOutcome(index, 1000 + index, mark, new anchor.BN(0), index)
         .accounts({
           market,
           outcome: pda.outcome(market, index),
@@ -84,7 +84,7 @@ describe("bracket-bond", () => {
         config,
         market,
         outcome: pda.outcome(market, 1),
-        oracleAuthority: wallet,
+        settler: wallet,
         txoracleProgram: SystemProgram.programId,
       })
       .rpc();
@@ -92,7 +92,7 @@ describe("bracket-bond", () => {
     // Finalize: outcome 0 is the sole survivor.
     await program.methods
       .finalize()
-      .accounts({ config, market, outcome: pda.outcome(market, 0), oracleAuthority: wallet })
+      .accounts({ config, market, outcome: pda.outcome(market, 0), settler: wallet })
       .rpc();
 
     m = await (program.account as any).market.fetch(market);
@@ -135,7 +135,7 @@ describe("bracket-bond", () => {
       [1, 300000],
     ] as const) {
       await program.methods
-        .addOutcome(index, 1000 + index, mark, new anchor.BN(0))
+        .addOutcome(index, 1000 + index, mark, new anchor.BN(0), index)
         .accounts({ market: m2, outcome: pda.outcome(m2, index), authority: wallet, systemProgram: SystemProgram.programId })
         .rpc();
     }
