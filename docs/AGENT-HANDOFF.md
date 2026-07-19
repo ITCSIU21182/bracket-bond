@@ -75,6 +75,12 @@ If `anchor build` errors on edition-2024 / lockfile v4, confirm `Anchor.toml
 
 ## 3. Backend + on-chain test checklist (run in order)
 
+> **✅ Last run (devnet, 2026-07-20, commit 1b96b54): A–H + J all PASS; I = N/A
+> (no live penalty-shootout fixture).** Highlights: F permissionless settle_round
+> `2emcrff…` (settler ≠ authority); G eliminate-the-winner **reverts `ProofFailed`**;
+> H consumed **195,734 / 1,400,000 CU**; J keeper auto-settled + finalised. Re-run to
+> reconfirm, and try I when a StatusId-13 fixture is available.
+
 | # | Test | Command | Expected / evidence | Status |
 |---|------|---------|---------------------|--------|
 | A1 | Program type-checks | `cargo check -p bracket-bond` | no `error[...]` | ✅ done on dev box |
@@ -151,3 +157,7 @@ never reaches the client: `grep -r "sk-" app/.next` → nothing.
   devnet (live Txoracle daily roots + a real finished fixture).
 - `add_outcome` now takes a trailing `participant_slot`; the settle/finalize signer
   account is `settler` (was `oracle_authority`). Callers/tests already updated.
+- **Deploy upgrade gotcha:** the current binary (~369 KB) is larger than an
+  earlier on-chain program, so `anchor deploy` upgrade can fail `invalid program
+  argument`. Fix: `solana program extend EbYmsXdALmF4GHY5JQT2Rv5fqC2Nws2qFcnh4B1QXE3U 120000`
+  then redeploy, or deploy fresh with `--max-len`.

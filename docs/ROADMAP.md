@@ -80,8 +80,12 @@ match). What's left is the full loop + packaging:
       eliminated a real knockout outcome (Norway v England, fixture 18213979, P2
       won 2-1) by cryptographic proof. `settle_round` tx
       `65jgF1VB5X6PNg75dQvtzhHqU438s8n5TDG3QTSqevR4cUr75eEfqK9NWefYQETxVeYTqgJxzL3vcinuf2XmZLGw`.
-- [ ] **Public devnet deploy** of the program (needs devnet SOL). _Accept:_ a
-      program id + a deployed market others can hit.
+- [x] **Public devnet deploy** — ✅ DONE (2026-07-20): program `EbYmsXdALmF4GHY5JQT2Rv5fqC2Nws2qFcnh4B1QXE3U`
+      redeployed on devnet; backend E2E A–H + J all PASS (see "Trustless binding" below).
+      _Deploy note:_ the 1b96b54 binary (369 KB) is larger than the prior on-chain
+      program, so `anchor deploy` upgrade first fails `invalid program argument` — run
+      `solana program extend EbYmsXdALmF4GHY5JQT2Rv5fqC2Nws2qFcnh4B1QXE3U 120000` (or
+      deploy fresh with `--max-len`) then redeploy.
 - [ ] **Frontend live** on the deployed market (copy the built IDL to
       `app/public/idl/bracket_bond.json`, set `app/.env.local`); wallet connects,
       Buy/Exit work.
@@ -99,9 +103,23 @@ on-chain** from the outcome's `participant_slot` (proving *the opponent advanced
 discarding the caller's strategy. Because the program decides the predicate,
 settlement is now **permissionless** (anyone / the keeper can settle a bound
 outcome) while a caller can only eliminate the team that actually lost. Every
-settlement emits a `RoundSettled` event (live feed + indexing). Verify on devnet
-per `docs/TESTING.md` Tier 4a (incl. the adversarial "can't eliminate the winner"
-check + CU budget).
+settlement emits a `RoundSettled` event (live feed + indexing).
+
+**✅ VERIFIED ON-CHAIN (devnet, 2026-07-20):**
+- **Permissionless (F):** a wallet that is *not* the config authority settled a
+  bound PROOF outcome. `settle_round` tx
+  `2emcrffBsuuX3t2M7EH6Au2Uzkvr2j29yMx5twmPjVn8YaQAcnWbU5ZvRyEf5nJurb81N4GVVCq69oLZvWimeZCa`
+  — settler `5fRfjJDkrkggJGnqSh8n66n5Wzc1L2NxxJh8ynUMTFnT` ≠ authority
+  `FxMcB2JW8Xp4cy3fPzAyRoe8JnFbH2E6sWCPShHC7mv9`.
+- **Can't eliminate the winner (G):** relaying a *true* proof but pointing at the
+  winning outcome **reverts `ProofFailed`** — the program rebuilt "opponent of the
+  winner advanced" = false. The security claim holds.
+- **CU (H):** the on-chain parse + predicate-rebuild + the ~1.4M-budget CPI fit in
+  **195,734 / 1,400,000 CU** (~86% headroom).
+- **Keeper (J):** a non-authority keeper auto-settled + finalised a market
+  (tx `4DJj4Q2YyGuZMyxNnvXnV8hL33sxr8r6ctxxiViPBXCciRzRWajcVcKjrRZKuotaT5NhP3VksXjhiFh4JtfXBESY`).
+- **Shootout (I):** N/A this run — no penalty-shootout fixture on the live feed; the
+  4-key (PE 6001/6002) branch is present + unit-level, awaiting a live StatusId-13 match.
 
 ## What's next (pitch "v2" — rides 2026 trends)
 
