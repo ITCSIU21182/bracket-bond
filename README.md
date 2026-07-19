@@ -23,24 +23,29 @@ Settlement*.
 
 ---
 
-## Why it's different
+## The idea
 
-Most prediction markets answer *"who decides the result?"* with people — a proposer,
-a dispute window, token-holder voters. That's trust-*minimized*, not trust-*less*.
-For an objective sports outcome ("did Brazil advance?"), a **math-proven settlement**
-is strictly better than a vote.
+A World Cup result is a fact, not an opinion — Brazil either advanced or they
+didn't. So Bracket Bond settles it by **proving the fact**, not by asking anyone to
+agree. Each knockout round resolves on a **TxLINE Merkle proof of the real match
+data**, verified on-chain through a CPI into TxODDS's `Txoracle` program. The
+elimination applies **only if the proof verifies** — objective, automatic, and final
+the moment the match ends.
 
-Bracket Bond settles each knockout round on a **TxLINE Merkle proof of the real
-match data**, verified on-chain via a CPI into TxODDS's `Txoracle` program. The
-elimination applies **only if the proof verifies**.
+That's what makes it a natural home for the TxODDS ecosystem: it turns TxLINE's
+verifiable data into the **settlement layer** of a real, tradeable market on Solana.
 
-| | Bracket Bond | Typical rivals |
-|---|---|---|
-| Settlement | Cryptographic proof (on-chain CPI) | Human oracle / vote / dispute window |
-| Penalty shootouts | ✅ Settled correctly (PE keys 6001/6002) | ❌ Usually mis-settled as a draw |
-| Tradeable | ✅ Buy + **exit anytime** at the live mark | Often locked until resolution |
-| Who can settle | ✅ **Permissionless** (anyone / a keeper) | Authority-gated |
-| Can the winner be wrongly eliminated? | ❌ Reverts — predicate is rebuilt on-chain | — |
+### What makes it special
+
+- **Settled by proof, not by vote** — objective, automatic, no dispute window.
+- **Shootout-correct** — it proves the penalty-shootout winner (PE keys 6001/6002),
+  the hardest case in knockout football to settle right.
+- **A real market** — buy at the live mark and **exit any time**; a solvency
+  invariant means the vault can never underpay.
+- **Permissionless yet safe** — anyone (or the keeper) can settle, but the program
+  rebuilds the winning condition on-chain, so only the team that actually **lost**
+  can be eliminated. Aim it at the winner and the transaction reverts.
+- **Runs itself** — an autonomous keeper settles the instant a proof exists.
 
 ## ✅ Verified on-chain (devnet)
 
@@ -156,6 +161,15 @@ Full verification steps + the copy-paste agent prompt: **[`docs/AGENT-HANDOFF.md
 - Settlement data comes from **TxLINE only** (see `AGENTS.md`).
 - Secrets (TxLINE tokens, `OPENAI_API_KEY`) stay **server-side** in gitignored
   `.env` files — never in the client bundle.
+
+## Where this goes
+
+Bracket Bond starts with the World Cup, but the primitive generalizes: **any
+objective, TxLINE-provable outcome can become a market that settles itself** —
+goals, cards, corners, shootouts, whole tournaments. The long-term goal is to make
+proof-settlement a reusable building block for the TxODDS + Solana ecosystem, so
+markets can price in real time, trade like real markets, and resolve on the truth —
+automatically, the moment the world produces it.
 
 ## License
 

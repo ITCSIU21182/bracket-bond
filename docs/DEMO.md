@@ -8,8 +8,10 @@ A shot-by-shot script for the submission video. Two modes:
   `pnpm settle:proof` for a *live* proof settle. Do this only if the TxLINE host +
   devnet are cooperating that day.
 
-Target length **4:30–5:00**. Narration is written word-for-word — read it at a calm
-pace. Keep each scene tight; the whole thing should feel fast.
+Target length **4:30–5:00**. Narration is written word-for-word — read it like a
+founder who believes it: warm, confident, unhurried. Not a spec readout. Let the
+product breathe on screen while you talk; the story should carry from one scene into
+the next.
 
 ---
 
@@ -36,11 +38,11 @@ pace. Keep each scene tight; the whole thing should feel fast.
 headline. Hover **Enter markets** (the shine sweeps).
 
 **Say:**
-> "Every prediction market has the same hard problem: who decides the result?
-> Polymarket answers with people — a proposer, a dispute window, voters. Bracket
-> Bond answers with math. It's a World Cup market on Solana where every knockout
-> round settles on a cryptographic proof of the real match data. No human oracle,
-> no dispute window."
+> "Sports have a beautiful property: the result is a fact. Brazil either advanced or
+> they didn't — nobody needs to vote on it. So we built a World Cup market that
+> settles the way facts should be settled: by proof. This is Bracket Bond — a
+> tradeable market on Solana where every knockout round is decided by a
+> cryptographic proof of the real match data, the moment the match ends."
 
 **Check:** the hero renders, the countdown ticks, the "Settled by proof — live on
 devnet" badge is visible.
@@ -52,10 +54,11 @@ at the **Mark-history chart**, the **odds** under each team, the bracket, and th
 settlement feed.
 
 **Say:**
-> "This is the flagship market — hold a team all the way to the final. Marks move
-> live from TxLINE odds; you can see each team's implied probability and decimal
-> odds, the price history, and the bracket. And crucially: it's a real market — you
-> can exit any time, you're not locked in."
+> "Here's the flagship: Race to the Final — pick a team and hold it all the way.
+> Everything you're seeing is alive. The marks move with the real odds from TxLINE;
+> you get each team's implied probability and decimal odds, the price history, the
+> bracket. And it's a genuine market — you're never locked in. You can take profit or
+> cut a position whenever you want."
 
 **Check:** marks animate; the chart draws; LIVE badge pulses; "Odds & scores:
 TxLINE / TxODDS" chip shows.
@@ -66,10 +69,12 @@ the share math. Click **Confirm buy** → the button morphs to a spinner → gre
 → confetti + toast. Then click **Exit** on any team to show the sell side.
 
 **Say:**
-> "Buying takes a position at the oracle-priced mark — no fee on the way in; the two
-> percent protocol fee is taken from the pot at settlement. Exit sells back at the
-> live mark, clamped to the pool so the vault can never underpay. That solvency
-> invariant is asserted in the on-chain tests."
+> "Let's take a position. Buying is instant, and there's no fee on the way in — the
+> small protocol fee only comes out of the pot at settlement, so it's paid by the
+> eventual winner. And this is the part people love: exit sells straight back at the
+> live mark, clamped to the pool, which means the vault can never owe more than it
+> holds. That solvency guarantee isn't a line in a doc — it's asserted in the
+> on-chain tests."
 
 **Check:** confirm animation + confetti + toast fire; the numbers in the sheet match
 (shares = amount ÷ mark).
@@ -81,10 +86,11 @@ Read it. Then go to **Activity** → open the **real** entry (Norway v England,
 "verified live on devnet").
 
 **Say:**
-> "Here's the moment no competitor nails — settlement. When a round resolves, the
-> losing team is eliminated by a proof. This receipt shows the match, the predicate
-> that was proven, the Merkle root, and the on-chain transaction. And this one is
-> real: Norway versus England, settled by cryptographic proof on devnet."
+> "Now the moment everything is built around: settlement. When a round ends, the
+> losing team is eliminated by a proof — and here's the receipt. The exact match,
+> the predicate that was proven, the Merkle root, and the transaction that carried it
+> on-chain. And this one isn't a mock-up: Norway versus England, a real knockout,
+> settled by cryptographic proof on Solana devnet. No committee, no waiting."
 
 **Check:** the proof-reveal animates; the Proof Receipt shows predicate + Merkle
 root + a Solscan link; the real entry is marked "verified live on devnet".
@@ -95,13 +101,14 @@ root + a Solscan link; the real entry is marked "verified live on devnet".
 tx). Point at *Program logs* / success.
 
 **Say:**
-> "Judge Mode lets anyone verify a settlement end to end: the TxLINE proof, the
-> on-chain validateStatV2 call, the elimination, the bracket. And settlement is
-> permissionless — this transaction was sent by a wallet that is not the market
-> authority. Yet nobody can cheat it: if you point settlement at the winning team,
-> the program rebuilds the predicate on-chain and the transaction reverts. We
-> verified that on devnet — permissionless settle works, and eliminating the winner
-> fails, in under two hundred thousand compute units."
+> "Anyone can check our work — that's the whole point. Judge Mode replays a
+> settlement end to end: the TxLINE proof, the on-chain verification, the
+> elimination, the bracket. And settlement is open — this transaction was sent by an
+> ordinary wallet, not the market's owner. But open doesn't mean exploitable: the
+> program rebuilds the winning condition on-chain, so if you tried to knock out the
+> team that actually won, the transaction simply reverts. We proved both on devnet —
+> permissionless settle works, cheating fails — in a small fraction of the compute
+> budget. Fast, cheap, and honest."
 
 **Check:** Solscan shows the tx succeeded; you can read `Program … success` in logs.
 
@@ -111,10 +118,12 @@ let it answer. Mention the autonomous keeper. Return to the Landing; end on the
 footer wordmark.
 
 **Say:**
-> "It even runs itself: an autonomous keeper settles the instant a proof exists, and
-> an AI pundit — grounded only on real TxLINE data — explains the markets. Bracket
-> Bond: a real, tradeable World Cup market that settles a shootout correctly, by
-> proof, not by vote. Thanks for watching."
+> "And it even runs itself. An autonomous keeper settles the instant a proof exists,
+> and an AI pundit — grounded only on real TxLINE data — helps people understand
+> what's happening. This is what verifiable data makes possible: a market that prices
+> in real time, trades like a real market, and settles itself on the truth. Bracket
+> Bond turns TxODDS's data into a settlement layer for Solana — and this is just the
+> first fixture. Thanks for watching."
 
 **Check:** the pundit streams a grounded answer (needs the key); otherwise skip the
 ask and just show the widget + narrate.
