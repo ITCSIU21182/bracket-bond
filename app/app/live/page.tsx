@@ -17,7 +17,10 @@ import { team } from "@/lib/teams";
 import { cents, lamportsToSol } from "@/lib/format";
 
 const PROGRAM_ID = process.env.NEXT_PUBLIC_PROGRAM_ID ?? "EbYmsXdALmF4GHY5JQT2Rv5fqC2Nws2qFcnh4B1QXE3U";
-const MARKET_ID = process.env.NEXT_PUBLIC_MARKET_ID;
+// Default to the deployed devnet market (777) so /live reads real on-chain state
+// even when the platform doesn't pass NEXT_PUBLIC_* into the build. `||` (not `??`)
+// so an empty build-arg still falls back.
+const MARKET_ID = process.env.NEXT_PUBLIC_MARKET_ID || "777";
 
 type State =
   | { kind: "unconfigured" }

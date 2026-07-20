@@ -15,6 +15,16 @@ WORKDIR /app
 COPY app/package.json app/pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 
+# NEXT_PUBLIC_* must exist at build time for Next.js to inline them. Declare them
+# as build args (Railway passes service variables as build args) with sane defaults
+# so /live reads the real devnet market even without any dashboard config.
+ARG NEXT_PUBLIC_MARKET_ID=777
+ARG NEXT_PUBLIC_RPC_URL=https://api.devnet.solana.com
+ARG NEXT_PUBLIC_PROGRAM_ID=EbYmsXdALmF4GHY5JQT2Rv5fqC2Nws2qFcnh4B1QXE3U
+ENV NEXT_PUBLIC_MARKET_ID=$NEXT_PUBLIC_MARKET_ID \
+    NEXT_PUBLIC_RPC_URL=$NEXT_PUBLIC_RPC_URL \
+    NEXT_PUBLIC_PROGRAM_ID=$NEXT_PUBLIC_PROGRAM_ID
+
 # Build the app.
 COPY app/ ./
 RUN pnpm build
