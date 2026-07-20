@@ -17,7 +17,7 @@ const SUGGESTIONS = [
  *  server route's read-only tools. Never invents numbers. */
 export function PunditChat() {
   const [open, setOpen] = useState(false);
-  const { messages, input, handleInputChange, handleSubmit, isLoading, append } = useChat({
+  const { messages, input, handleInputChange, handleSubmit, isLoading, append, error } = useChat({
     api: "/api/pundit",
     initialMessages: [
       {
@@ -94,6 +94,13 @@ export function PunditChat() {
                 <div className="flex justify-start">
                   <div className="rounded-2xl border border-line bg-panel-2/50 px-3.5 py-2 text-sm text-muted">
                     thinking…
+                  </div>
+                </div>
+              )}
+              {error && (
+                <div className="flex justify-start">
+                  <div className="rounded-2xl border border-danger/40 bg-danger/5 px-3.5 py-2 text-sm text-muted">
+                    I couldn&apos;t reach the pundit right now. Please try again in a moment.
                   </div>
                 </div>
               )}

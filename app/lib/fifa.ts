@@ -19,18 +19,25 @@ export interface FifaTeam {
   name: string;
   flag: string;
 }
-export interface FifaResult {
-  fixtureId: string;
-  team: string;
+export interface FifaSide {
+  name: string;
   flag: string;
-  fixture: string;
+  score: number;
+  pen: number | null;
+  winner: boolean;
+}
+export interface FifaMatch {
+  id: string;
+  date: string; // ISO
   round: string;
-  wentToPenalties: boolean;
-  pens: string | null;
+  stadium: string | null;
+  status: string; // "FT" | "AET" | "PENS"
+  home: FifaSide;
+  away: FifaSide;
 }
 export interface FifaData {
   teams: FifaTeam[]; // quarter-finalists, real names/flags — for the market
-  results: FifaResult[]; // real knockout eliminations (incl. shootouts)
+  matches: FifaMatch[]; // real knockout results (QF onwards)
   winner: FifaTeam | null;
 }
 
@@ -41,6 +48,14 @@ const nameOf = (t: any) =>
   ((t?.TeamName && (t.TeamName.find((n: any) => n.Locale === "en-GB") || t.TeamName[0])) || {}).Description ||
   t?.ShortClubName ||
   String(t?.IdTeam ?? "");
+
+const stadiumOf = (m: any): string | null => {
+  const s = m?.Stadium;
+  if (!s) return null;
+  const name = s.Name?.[0]?.Description || null;
+  const city = s.CityName?.[0]?.Description || null;
+  return name ? (city ? `${name} (${city})` : name) : null;
+};
 
 export async function fetchFifa(): Promise<FifaData | null> {
   try {
@@ -59,13 +74,14 @@ export async function fetchFifa(): Promise<FifaData | null> {
 
     const stages = (br?.KnockoutStages || []).slice().sort((a: any, b: any) => a.SequenceOrder - b.SequenceOrder);
     const teams: Record<string, FifaTeam & { status: string }> = {};
-    const results: FifaResult[] = [];
+    const matches: FifaMatch[] = [];
     const qfTeamIds: string[] = [];
     const winnerId = br?.Winner?.IdTeam;
 
     for (const st of stages) {
       const round = st?.Name?.[0]?.Description || "";
       const isBronze = /bronze/i.test(round);
+      const isLateStage = /(quarter|semi|final)/i.test(round); // QF onwards (incl. bronze + final)
       for (const m of st?.Matches || []) {
         const H = m.HomeTeam;
         const A = m.AwayTeam;
@@ -76,18 +92,24 @@ export async function fetchFifa(): Promise<FifaData | null> {
         if (/quarter/i.test(round)) {
           for (const t of [H, A]) if (!qfTeamIds.includes(t.IdTeam)) qfTeamIds.push(t.IdTeam);
         }
-        if (m.MatchStatus === 0 && m.Winner && !isBronze) {
-          const L = m.Winner === H.IdTeam ? A : H;
-          if (teams[L.IdTeam]) teams[L.IdTeam].status = "eliminated";
-          results.push({
-            fixtureId: String(m.IdMatch),
-            team: nameOf(L),
-            flag: flagOf(L),
-            fixture: `${nameOf(H)} ${m.HomeTeamScore}-${m.AwayTeamScore} ${nameOf(A)}`,
-            round,
-            wentToPenalties: m.ResultType === 2,
-            pens: m.ResultType === 2 ? `${m.HomeTeamPenaltyScore}-${m.AwayTeamPenaltyScore}` : null,
-          });
+        if (m.MatchStatus === 0 && m.Winner) {
+          if (!isBronze) {
+            const L = m.Winner === H.IdTeam ? A : H;
+            if (teams[L.IdTeam]) teams[L.IdTeam].status = "eliminated";
+          }
+          if (isLateStage) {
+            const homeWon = m.Winner === H.IdTeam;
+            const pens = m.ResultType === 2;
+            matches.push({
+              id: String(m.IdMatch),
+              date: m.Date,
+              round,
+              stadium: stadiumOf(m),
+              status: pens ? "PENS" : m.ResultType === 3 ? "AET" : "FT",
+              home: { name: nameOf(H), flag: flagOf(H), score: m.HomeTeamScore, pen: pens ? m.HomeTeamPenaltyScore : null, winner: homeWon },
+              away: { name: nameOf(A), flag: flagOf(A), score: m.AwayTeamScore, pen: pens ? m.AwayTeamPenaltyScore : null, winner: !homeWon },
+            });
+          }
         }
       }
     }
@@ -98,7 +120,9 @@ export async function fetchFifa(): Promise<FifaData | null> {
         : null;
     const featured = qfTeamIds.map((id) => teams[id]).filter(Boolean).map((t) => ({ id: t.id, name: t.name, flag: t.flag }));
     if (!featured.length) return null;
-    return { teams: featured, results, winner };
+    // sort matches by date ascending
+    matches.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+    return { teams: featured, matches, winner };
   } catch {
     return null;
   }
