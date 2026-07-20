@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useChat } from "@ai-sdk/react";
 import { MessageSquare, Send, Sparkles, X } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { localAnswer } from "@/lib/punditFallback";
 
 const SUGGESTIONS = [
   "How does Bracket Bond settle a match?",
@@ -17,7 +18,7 @@ const SUGGESTIONS = [
  *  server route's read-only tools. Never invents numbers. */
 export function PunditChat() {
   const [open, setOpen] = useState(false);
-  const { messages, input, handleInputChange, handleSubmit, isLoading, append, error } = useChat({
+  const { messages, input, handleInputChange, handleSubmit, isLoading, append, error, setMessages } = useChat({
     api: "/api/pundit",
     initialMessages: [
       {
@@ -28,6 +29,20 @@ export function PunditChat() {
       },
     ],
   });
+
+  // If the LLM route is unavailable (e.g. no OPENAI_API_KEY on the server), answer
+  // from the curated offline pundit so the widget still responds.
+  const answered = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!error) return;
+    const lastUser = [...messages].reverse().find((m) => m.role === "user");
+    if (!lastUser || answered.current.has(lastUser.id)) return;
+    answered.current.add(lastUser.id);
+    setMessages((prev) => [
+      ...prev,
+      { id: `fallback-${lastUser.id}`, role: "assistant", content: localAnswer(lastUser.content) },
+    ]);
+  }, [error, messages, setMessages]);
 
   return (
     <>
@@ -94,13 +109,6 @@ export function PunditChat() {
                 <div className="flex justify-start">
                   <div className="rounded-2xl border border-line bg-panel-2/50 px-3.5 py-2 text-sm text-muted">
                     thinking…
-                  </div>
-                </div>
-              )}
-              {error && (
-                <div className="flex justify-start">
-                  <div className="rounded-2xl border border-danger/40 bg-danger/5 px-3.5 py-2 text-sm text-muted">
-                    I couldn&apos;t reach the pundit right now. Please try again in a moment.
                   </div>
                 </div>
               )}

@@ -75,7 +75,7 @@ export async function POST(req: Request) {
     tools: {
       getMarketState: tool({
         description:
-          "Get current Bracket Bond markets: title, round, status, pool size, fee, and each team's mark (in cents) and status. Pass a marketId to focus one.",
+          "Get current Bracket Bond markets: title, round, status, pool size, fee, and each team's mark (price of a $1 share, 0-1 implied probability) and status. Pass a marketId to focus one.",
         parameters: z.object({
           marketId: z.number().optional().describe("optional market id to focus"),
         }),

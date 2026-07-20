@@ -6,7 +6,7 @@ import { ArrowDownRight, ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 /**
- * Signature mark display: a large tabular number in ¢ that count-animates to its
+ * Signature mark display: a large tabular price in $ that count-animates to its
  * new value and flashes accent (up) / danger (down) for ~500ms on change.
  */
 export function MarkTicker({
@@ -59,7 +59,8 @@ export function MarkTicker({
         className,
       )}
     >
-      {display}¢
+      {"$"}
+      {(display / 100).toFixed(2)}
       {showArrow && (rising || falling) && (
         <span className={rising ? "text-accent" : "text-danger"}>
           {rising ? (

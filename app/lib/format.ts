@@ -2,9 +2,9 @@
 
 export const LAMPORTS = 1_000_000_000;
 
-/** Implied probability [0,1] → cents string, e.g. 0.78 → "78¢". */
+/** Implied probability [0,1] → price string (a $1 share), e.g. 0.78 → "$0.78". */
 export function cents(prob: number): string {
-  return `${Math.round(prob * 100)}¢`;
+  return `$${prob.toFixed(2)}`;
 }
 
 /** SOL with the ◎ glyph and fixed precision. */

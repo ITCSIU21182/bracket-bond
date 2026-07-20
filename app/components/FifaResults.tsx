@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { Trophy } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { FifaMatch, FifaSide, FifaTeam } from "@/lib/fifa";
@@ -74,12 +73,7 @@ export function FifaResults({ matches, winner }: { matches: FifaMatch[]; winner:
       )}
       {groups.map((g) => (
         <div key={g.key}>
-          <div className="mb-2.5 flex items-center justify-between">
-            <div className="text-sm font-semibold">{g.label}</div>
-            <Link href="/markets/1" className="text-xs font-medium text-brand-2 hover:underline">
-              View brackets
-            </Link>
-          </div>
+          <div className="mb-2.5 text-sm font-semibold">{g.label}</div>
           <div className="space-y-2">
             {g.items.map((m) => (
               <MatchRow key={m.id} m={m} />
