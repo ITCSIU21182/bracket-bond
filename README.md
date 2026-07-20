@@ -15,8 +15,6 @@ Settlement*.
 
 [Settlement](docs-site/content/docs/settlement.mdx) ·
 [Testing](docs/TESTING.md) ·
-[Agent handoff](docs/AGENT-HANDOFF.md) ·
-[Demo script](docs/DEMO.md) ·
 [Deploy](docs/DEPLOY.md) ·
 [Roadmap](docs/ROADMAP.md)
 
@@ -50,8 +48,7 @@ verifiable data into the **settlement layer** of a real, tradeable market on Sol
 
 ## ✅ Verified on-chain (devnet)
 
-Backend + on-chain behavior was verified end-to-end on devnet (full log:
-[`docs/AGENT-HANDOFF.md`](docs/AGENT-HANDOFF.md)):
+Backend + on-chain behavior was verified end-to-end on devnet:
 
 - **Permissionless settle** from a non-authority wallet —
   [`settle_round` tx `2emcrff…`](https://solscan.io/tx/2emcrffBsuuX3t2M7EH6Au2Uzkvr2j29yMx5twmPjVn8YaQAcnWbU5ZvRyEf5nJurb81N4GVVCq69oLZvWimeZCa?cluster=devnet)
@@ -140,7 +137,7 @@ cp app/.env.local.example app/.env.local   # optional: OPENAI_API_KEY for the pu
 pnpm -C app dev                            # http://localhost:3000
 ```
 
-Full verification steps + the copy-paste agent prompt: **[`docs/AGENT-HANDOFF.md`](docs/AGENT-HANDOFF.md)**.
+Full verification steps: **[`docs/TESTING.md`](docs/TESTING.md)**.
 
 ## Repo layout
 
