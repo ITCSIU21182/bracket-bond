@@ -1,0 +1,1106 @@
+{
+  "address": "EbYmsXdALmF4GHY5JQT2Rv5fqC2Nws2qFcnh4B1QXE3U",
+  "metadata": {
+    "name": "bracket_bond",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "Bracket Bond — a proof-settled World Cup prediction market on Solana"
+  },
+  "instructions": [
+    {
+      "name": "add_outcome",
+      "docs": [
+        "Register one outcome (team) in a market. Authority only, while open."
+      ],
+      "discriminator": [
+        162,
+        222,
+        202,
+        185,
+        176,
+        222,
+        248,
+        52
+      ],
+      "accounts": [
+        {
+          "name": "market",
+          "writable": true
+        },
+        {
+          "name": "outcome",
+          "writable": true
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "market"
+          ]
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "index",
+          "type": "u8"
+        },
+        {
+          "name": "team_id",
+          "type": "u32"
+        },
+        {
+          "name": "initial_mark",
+          "type": "u32"
+        },
+        {
+          "name": "expected_fixture_id",
+          "type": "u64"
+        },
+        {
+          "name": "participant_slot",
+          "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "buy",
+      "docs": [
+        "Buy shares of an outcome at the current mark.",
+        "`shares = amount * MARK_SCALE / mark`."
+      ],
+      "discriminator": [
+        102,
+        6,
+        61,
+        18,
+        1,
+        218,
+        235,
+        234
+      ],
+      "accounts": [
+        {
+          "name": "market",
+          "writable": true
+        },
+        {
+          "name": "outcome",
+          "writable": true
+        },
+        {
+          "name": "position",
+          "writable": true
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "buyer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "index",
+          "type": "u8"
+        },
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "claim_fees",
+      "docs": [
+        "Authority withdraws accrued protocol fees after resolution."
+      ],
+      "discriminator": [
+        82,
+        251,
+        233,
+        156,
+        12,
+        52,
+        184,
+        202
+      ],
+      "accounts": [
+        {
+          "name": "market",
+          "writable": true
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "create_market",
+      "docs": [
+        "Create a market and its collateral vault."
+      ],
+      "discriminator": [
+        103,
+        226,
+        97,
+        235,
+        200,
+        188,
+        251,
+        254
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "market",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  109,
+                  97,
+                  114,
+                  107,
+                  101,
+                  116
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "market_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "market_id",
+          "type": "u64"
+        },
+        {
+          "name": "title",
+          "type": "string"
+        },
+        {
+          "name": "fee_bps",
+          "type": "u16"
+        }
+      ]
+    },
+    {
+      "name": "finalize",
+      "docs": [
+        "Mark the sole surviving outcome as the winner and resolve the market.",
+        "",
+        "Permissionless in `PROOF` mode (the outcome is deterministic once a single",
+        "outcome remains alive); oracle-authority-gated in `TRUSTED_ORACLE`."
+      ],
+      "discriminator": [
+        171,
+        61,
+        218,
+        56,
+        127,
+        115,
+        12,
+        217
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "market",
+          "writable": true
+        },
+        {
+          "name": "outcome",
+          "writable": true
+        },
+        {
+          "name": "settler",
+          "docs": [
+            "Permissionless in PROOF mode; must equal `config.oracle_authority` in",
+            "TRUSTED_ORACLE (enforced in the handler)."
+          ],
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "initialize",
+      "docs": [
+        "Create the global config. `settlement_mode` selects proof vs trusted-oracle."
+      ],
+      "discriminator": [
+        175,
+        175,
+        109,
+        31,
+        13,
+        152,
+        155,
+        237
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "oracle_authority",
+          "type": "pubkey"
+        },
+        {
+          "name": "txoracle_program",
+          "type": "pubkey"
+        },
+        {
+          "name": "fee_bps",
+          "type": "u16"
+        },
+        {
+          "name": "settlement_mode",
+          "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "redeem",
+      "docs": [
+        "Redeem winning shares for a pro-rata slice of the pot (minus fees)."
+      ],
+      "discriminator": [
+        184,
+        12,
+        86,
+        149,
+        70,
+        196,
+        97,
+        225
+      ],
+      "accounts": [
+        {
+          "name": "market",
+          "writable": true
+        },
+        {
+          "name": "outcome",
+          "writable": true
+        },
+        {
+          "name": "position",
+          "writable": true
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "owner",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "_index",
+          "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "sell",
+      "docs": [
+        "Exit a position before resolution: sell shares back at the current mark.",
+        "`payout = shares * mark / MARK_SCALE`, clamped to the pot so the vault can",
+        "never underpay (a late \"bank-run\" seller may receive less than mark)."
+      ],
+      "discriminator": [
+        51,
+        230,
+        133,
+        164,
+        1,
+        127,
+        131,
+        173
+      ],
+      "accounts": [
+        {
+          "name": "market",
+          "writable": true
+        },
+        {
+          "name": "outcome",
+          "writable": true
+        },
+        {
+          "name": "position",
+          "writable": true
+        },
+        {
+          "name": "vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "market"
+              }
+            ]
+          }
+        },
+        {
+          "name": "seller",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "_index",
+          "type": "u8"
+        },
+        {
+          "name": "shares",
+          "type": "u128"
+        }
+      ]
+    },
+    {
+      "name": "settle_round",
+      "docs": [
+        "Eliminate an outcome for the current round.",
+        "",
+        "Authority model, by `settlement_mode`:",
+        "- `TRUSTED_ORACLE`: the configured oracle authority signs directly",
+        "(replay/demo/tests).",
+        "- `PROOF`, outcome bound to a fixture (`expected_fixture_id != 0`):",
+        "**permissionless** — anyone may settle. The program pins the fixture and",
+        "stat keys and builds the advancement predicate itself, so the relayed",
+        "`Txoracle.validateStatV2` proof can only eliminate the team that lost.",
+        "- `PROOF`, unbound outcome (`expected_fixture_id == 0`): no binding is",
+        "possible, so it falls back to the oracle authority (legacy pairing)."
+      ],
+      "discriminator": [
+        40,
+        101,
+        18,
+        1,
+        31,
+        129,
+        52,
+        77
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "market",
+          "writable": true
+        },
+        {
+          "name": "outcome",
+          "writable": true
+        },
+        {
+          "name": "settler",
+          "docs": [
+            "The settler. In PROOF mode with a bound outcome this is permissionless",
+            "(anyone); in TRUSTED_ORACLE or for an unbound outcome it must equal",
+            "`config.oracle_authority` (enforced in the handler)."
+          ],
+          "signer": true
+        },
+        {
+          "name": "txoracle_program"
+        }
+      ],
+      "args": [
+        {
+          "name": "validate_ix_data",
+          "type": "bytes"
+        }
+      ]
+    },
+    {
+      "name": "update_mark",
+      "docs": [
+        "Oracle pushes the latest TxLINE-derived implied probability (pricing only)."
+      ],
+      "discriminator": [
+        98,
+        230,
+        25,
+        119,
+        192,
+        144,
+        30,
+        147
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "market"
+        },
+        {
+          "name": "outcome",
+          "writable": true
+        },
+        {
+          "name": "oracle_authority",
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "_index",
+          "type": "u8"
+        },
+        {
+          "name": "mark",
+          "type": "u32"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "Config",
+      "discriminator": [
+        155,
+        12,
+        170,
+        224,
+        30,
+        250,
+        204,
+        130
+      ]
+    },
+    {
+      "name": "Market",
+      "discriminator": [
+        219,
+        190,
+        213,
+        55,
+        0,
+        227,
+        198,
+        154
+      ]
+    },
+    {
+      "name": "Outcome",
+      "discriminator": [
+        131,
+        46,
+        145,
+        156,
+        166,
+        15,
+        46,
+        131
+      ]
+    },
+    {
+      "name": "Position",
+      "discriminator": [
+        170,
+        188,
+        143,
+        228,
+        122,
+        64,
+        247,
+        208
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "MarketResolved",
+      "discriminator": [
+        89,
+        67,
+        230,
+        95,
+        143,
+        106,
+        199,
+        202
+      ]
+    },
+    {
+      "name": "RoundSettled",
+      "discriminator": [
+        249,
+        225,
+        66,
+        54,
+        157,
+        200,
+        234,
+        222
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "MarketNotOpen",
+      "msg": "Market is not open"
+    },
+    {
+      "code": 6001,
+      "name": "MarketNotResolved",
+      "msg": "Market is not resolved"
+    },
+    {
+      "code": 6002,
+      "name": "OutcomeNotAlive",
+      "msg": "Outcome is not alive"
+    },
+    {
+      "code": 6003,
+      "name": "NotWinner",
+      "msg": "Outcome is not the winning outcome"
+    },
+    {
+      "code": 6004,
+      "name": "InvalidMark",
+      "msg": "Invalid mark: must be in 1..=MARK_SCALE"
+    },
+    {
+      "code": 6005,
+      "name": "ZeroAmount",
+      "msg": "Amount must be greater than zero"
+    },
+    {
+      "code": 6006,
+      "name": "InsufficientShares",
+      "msg": "Insufficient shares in position"
+    },
+    {
+      "code": 6007,
+      "name": "MathOverflow",
+      "msg": "Arithmetic overflow"
+    },
+    {
+      "code": 6008,
+      "name": "Unauthorized",
+      "msg": "Signer is not authorized"
+    },
+    {
+      "code": 6009,
+      "name": "InvalidSettlementMode",
+      "msg": "Unknown settlement mode"
+    },
+    {
+      "code": 6010,
+      "name": "NotFinalizable",
+      "msg": "Cannot finalize while more than one outcome is still alive"
+    },
+    {
+      "code": 6011,
+      "name": "BadOracleProgram",
+      "msg": "Txoracle program account does not match config"
+    },
+    {
+      "code": 6012,
+      "name": "ProofFailed",
+      "msg": "On-chain stat proof did not verify (validateStat returned false)"
+    },
+    {
+      "code": 6013,
+      "name": "FixtureMismatch",
+      "msg": "Proof fixture does not match this outcome's expected fixture"
+    },
+    {
+      "code": 6014,
+      "name": "NoShares",
+      "msg": "Outcome pool has no shares to redeem against"
+    },
+    {
+      "code": 6015,
+      "name": "InvalidParticipantSlot",
+      "msg": "Participant slot must be 0 or 1"
+    },
+    {
+      "code": 6016,
+      "name": "StatKeyMismatch",
+      "msg": "Relayed proof stat keys are not the canonical advancement layout"
+    }
+  ],
+  "types": [
+    {
+      "name": "Config",
+      "docs": [
+        "Global program configuration (one per deployment)."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "oracle_authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "txoracle_program",
+            "type": "pubkey"
+          },
+          {
+            "name": "fee_bps",
+            "type": "u16"
+          },
+          {
+            "name": "settlement_mode",
+            "type": "u8"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Market",
+      "docs": [
+        "A single prediction market, e.g. \"Race to the Final\".",
+        "",
+        "Solvency model (single shared pot): all collateral lives in the `Vault`",
+        "PDA and is tracked here as `total_collateral`. Each `Outcome` only tracks",
+        "its `shares_outstanding`. Eliminated outcomes forfeit to the pot; the",
+        "winning outcome's holders split `total_collateral - fees_accrued` pro-rata",
+        "by shares. Redistribution is therefore emergent and provably conservative:",
+        "the sum of all redemptions can never exceed the pot."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "market_id",
+            "type": "u64"
+          },
+          {
+            "name": "title",
+            "type": "string"
+          },
+          {
+            "name": "status",
+            "type": "u8"
+          },
+          {
+            "name": "round",
+            "type": "u8"
+          },
+          {
+            "name": "outcome_count",
+            "type": "u8"
+          },
+          {
+            "name": "alive_count",
+            "type": "u8"
+          },
+          {
+            "name": "fee_bps",
+            "type": "u16"
+          },
+          {
+            "name": "total_collateral",
+            "type": "u64"
+          },
+          {
+            "name": "fees_accrued",
+            "type": "u64"
+          },
+          {
+            "name": "winner_index",
+            "docs": [
+              "Index of the winning outcome, or `-1` while unresolved."
+            ],
+            "type": "i16"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "vault_bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "MarketResolved",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "winner_index",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Outcome",
+      "docs": [
+        "One outcome (team) inside a market."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "index",
+            "type": "u8"
+          },
+          {
+            "name": "team_id",
+            "type": "u32"
+          },
+          {
+            "name": "status",
+            "type": "u8"
+          },
+          {
+            "name": "mark",
+            "docs": [
+              "Latest TxLINE-derived implied probability (scaled by `MARK_SCALE`).",
+              "Used only to price `buy`/`sell` — never for settlement."
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "shares_outstanding",
+            "type": "u128"
+          },
+          {
+            "name": "expected_fixture_id",
+            "docs": [
+              "The TxLINE fixture whose result decides this outcome's elimination this",
+              "round. `settle_round` (PROOF mode) requires the relayed proof to be for",
+              "this fixture, so an oracle can't prove match A but eliminate a team from",
+              "match B. `0` = unbound (TRUSTED_ORACLE demos/tests)."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "participant_slot",
+            "docs": [
+              "Which participant this team is in `expected_fixture_id`: `0` = participant",
+              "1 (goals stat key 1 / PE key 6001), `1` = participant 2 (keys 2 / 6002).",
+              "Permissionless PROOF settlement builds the advancement predicate from this,",
+              "forcing the relayed proof to prove *the opponent* advanced — so a caller",
+              "can eliminate only the team that actually lost, never the winner."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Position",
+      "docs": [
+        "A user's holding in one outcome of one market."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "outcome_index",
+            "type": "u8"
+          },
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "shares",
+            "type": "u128"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RoundSettled",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "market",
+            "type": "pubkey"
+          },
+          {
+            "name": "outcome_index",
+            "type": "u8"
+          },
+          {
+            "name": "fixture_id",
+            "type": "u64"
+          },
+          {
+            "name": "round",
+            "type": "u8"
+          }
+        ]
+      }
+    }
+  ]
+}
