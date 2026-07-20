@@ -13,6 +13,7 @@ const LINKS = [
   { href: "/portfolio", label: "Portfolio" },
   { href: "/activity", label: "Activity" },
   { href: "/judge", label: "Judge" },
+  { href: "/live", label: "Live" },
 ];
 
 export function Nav() {

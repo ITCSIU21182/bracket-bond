@@ -161,3 +161,55 @@ never reaches the client: `grep -r "sk-" app/.next` → nothing.
   earlier on-chain program, so `anchor deploy` upgrade can fail `invalid program
   argument`. Fix: `solana program extend EbYmsXdALmF4GHY5JQT2Rv5fqC2Nws2qFcnh4B1QXE3U 120000`
   then redeploy, or deploy fresh with `--max-len`.
+
+---
+
+## 9. Make the frontend show REAL on-chain data (`/live` page)
+
+The frontend runs on mock data by default (there's no live World Cup, so no
+real-time marks). But the app has a **`/live` page** that reads a real on-chain
+market directly from devnet. To light it up:
+
+1. **Build the IDL and commit it to the app:**
+   ```bash
+   anchor build
+   mkdir -p app/public/idl && cp target/idl/bracket_bond.json app/public/idl/bracket_bond.json
+   ```
+2. **Create a real market on-chain** (6 named-team outcomes + a real pool):
+   ```bash
+   ANCHOR_WALLET=<funded_key> ANCHOR_PROVIDER_URL=https://api.devnet.solana.com \
+     LIVE_MARKET_ID=777 pnpm create:market
+   ```
+   Note the market id it prints (777) and the market PDA.
+3. **(Optional) settle a round by real proof** so `/live` shows a real elimination:
+   `pnpm settle:proof` (separate bound market) — or bind an outcome to a finished
+   fixture and settle it.
+4. **Point the deployed frontend at it:** in Railway → Variables set
+   `NEXT_PUBLIC_MARKET_ID=777` (and make sure the committed IDL is deployed). Open
+   `/live` — it reads the market, outcomes, marks, status, and pool **live from the
+   chain** and links the market account on Solscan.
+
+Commit the IDL + any changes and push to **both** remotes (yukitran03 and the deploy
+repo) so Railway rebuilds.
+
+### Copy-paste prompt for the other machine
+
+> You are on a machine with Agave 4.0.2 + Anchor 0.31 + Node 20+ + pnpm and a FUNDED
+> Solana devnet wallet. Goal: make Bracket Bond's frontend `/live` page show REAL
+> on-chain data. Repo: https://github.com/ITCSIU21182/bracket-bond (branch main).
+>
+> Read `docs/AGENT-HANDOFF.md` §9 and `scripts/txline/create-market.ts` +
+> `app/app/live/page.tsx` first. Then, from the repo root:
+> 1. `pnpm install` ; `anchor build` ; `mkdir -p app/public/idl && cp target/idl/bracket_bond.json app/public/idl/bracket_bond.json`
+> 2. `cp .env.example .env` and set `ANCHOR_WALLET`, `ANCHOR_PROVIDER_URL=https://api.devnet.solana.com`
+> 3. `LIVE_MARKET_ID=777 pnpm create:market` — record the printed market id + PDA + Solscan link
+> 4. (optional) `pnpm settle:proof` to add a real proof-settled elimination
+> 5. Commit the IDL, then push to BOTH remotes:
+>    `git push origin main` and `git push https://github.com/ITCSIU21182/bracket-bond.git main`
+> 6. In Railway → Variables set `NEXT_PUBLIC_MARKET_ID=777`; redeploy.
+> 7. Open the deployed `/live` page and confirm it shows the real market (title,
+>    outcomes with team names, marks, pool) with the Solscan link resolving.
+>
+> Report back: the market id + PDA + Solscan link, whether `/live` renders the real
+> on-chain state, any errors (with the last ~20 lines), and `solana`/`anchor`
+> versions. Do NOT fake a pass — if the faucet or toolchain blocks a step, say so.
