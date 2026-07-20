@@ -39,6 +39,7 @@ export default function MarketDetail() {
     mode: "buy",
     outcome: null,
   });
+  const [fifaTeams, setFifaTeams] = useState<{ name: string; flag: string }[] | null>(null);
 
   // Mark-history chart: pick an outcome (default the current leader). Built from
   // stable base data so it doesn't redraw when live marks jitter.
@@ -80,6 +81,29 @@ export default function MarketDetail() {
     }, 2600);
     return () => clearInterval(iv);
   }, [market.status]);
+
+  // Enrich the flagship market with REAL team names/flags from the FIFA API
+  // (display only - marks stay derived). Falls back silently to mock names.
+  useEffect(() => {
+    if (id !== 1) return;
+    let cancelled = false;
+    fetch("/api/fifa")
+      .then((r) => r.json())
+      .then((d) => {
+        if (cancelled || !d?.ok || !Array.isArray(d.teams)) return;
+        setFifaTeams(d.teams);
+        setMarket((m) => ({
+          ...m,
+          teams: m.teams.map((t, i) =>
+            d.teams[i] ? { ...t, team: d.teams[i].name, flag: d.teams[i].flag } : t,
+          ),
+        }));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
 
   const resolved = market.status === "resolved";
 
@@ -181,8 +205,8 @@ export default function MarketDetail() {
           <div>
             <div className="eyebrow text-muted-2">Mark history · implied probability</div>
             <div className="mt-1.5 flex items-baseline gap-2">
-              <span className="text-xl leading-none">{chartOutcome.flag}</span>
-              <span className="font-semibold">{chartOutcome.team}</span>
+              <span className="text-xl leading-none">{fifaTeams?.[chartOutcome.index]?.flag ?? chartOutcome.flag}</span>
+              <span className="font-semibold">{fifaTeams?.[chartOutcome.index]?.name ?? chartOutcome.team}</span>
               <span className="tnum font-semibold text-brand-2">{cents(chartOutcome.mark)}</span>
             </div>
           </div>
@@ -198,7 +222,7 @@ export default function MarketDetail() {
                     : "border-line text-muted hover:border-line-soft hover:text-text",
                 )}
               >
-                {o.flag} {o.team}
+                {fifaTeams?.[o.index]?.flag ?? o.flag} {fifaTeams?.[o.index]?.name ?? o.team}
               </button>
             ))}
           </div>
