@@ -13,6 +13,9 @@ TxODDS) — including penalty shootouts. No human oracle, no dispute window.
 Built for the **TxODDS × Superteam World Cup Hackathon** — *Prediction Markets &
 Settlement*.
 
+**[▶ Live app](https://bracket-bond-production.up.railway.app/)** ·
+**[Live on-chain view](https://bracket-bond-production.up.railway.app/live)**
+
 [Settlement](docs-site/content/docs/settlement.mdx) ·
 [Testing](docs/TESTING.md) ·
 [Deploy](docs/DEPLOY.md) ·
@@ -62,6 +65,18 @@ Backend + on-chain behavior was verified end-to-end on devnet:
   [`tx 65jgF1VB…`](https://solscan.io/tx/65jgF1VB5X6PNg75dQvtzhHqU438s8n5TDG3QTSqevR4cUr75eEfqK9NWefYQETxVeYTqgJxzL3vcinuf2XmZLGw?cluster=devnet).
 
 Program id (devnet): `EbYmsXdALmF4GHY5JQT2Rv5fqC2Nws2qFcnh4B1QXE3U`.
+
+## Try it — what's real vs. illustrative
+
+**Live app:** https://bracket-bond-production.up.railway.app/
+
+- **`/live`** reads a real market **straight from Solana devnet** (program above,
+  market `777`) — real outcomes, marks, and pool, no mock data.
+- **Settlement by proof** — the differentiator — is real and verified on-chain
+  (the tx links above).
+- The flagship market UI (Markets, Portfolio, Activity, Judge) runs on **clearly
+  labelled demo data**: a live "Race to the Final" needs the tournament to be
+  actively running (real-time TxLINE odds/scores), so those marks are simulated.
 
 ## How settlement works
 
