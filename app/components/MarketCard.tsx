@@ -3,6 +3,7 @@ import { ArrowRight, ShieldCheck } from "lucide-react";
 import { Card } from "./ui/Card";
 import { MarkTicker } from "./MarkTicker";
 import { LiveBadge } from "./LiveBadge";
+import { DemoBadge } from "./DemoBanner";
 import { cn } from "@/lib/cn";
 import { sol } from "@/lib/format";
 import type { Market } from "@/lib/types";
@@ -38,7 +39,7 @@ export function MarketCard({ market, featured = false }: { market: Market; featu
               >
                 {market.status}
               </span>
-              {market.status === "open" && <LiveBadge />}
+              {market.status === "open" && (market.live ? <LiveBadge /> : <DemoBadge />)}
             </div>
             <p className="mt-1 text-sm text-muted">{market.subtitle}</p>
           </div>

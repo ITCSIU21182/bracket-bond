@@ -34,9 +34,12 @@ export function SettlementFeedItem({
           </span>
         </div>
         <div className="mt-0.5 flex items-center gap-2 text-xs text-muted">
-          <span className="text-accent">proof verified</span>
+          {event.real ? (
+            <span className="text-accent">proof verified · on-chain</span>
+          ) : (
+            <span className="text-gold">demo</span>
+          )}
           {event.wentToPenalties && <span className="text-gold">· shootout</span>}
-          {event.real && <span className="text-accent">· live</span>}
           <span>· {ago(event.tsMs, now)}</span>
         </div>
       </div>

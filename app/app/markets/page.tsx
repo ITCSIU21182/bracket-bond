@@ -1,5 +1,6 @@
 import { MarketCard } from "@/components/MarketCard";
 import { AnalyticsPanel } from "@/components/AnalyticsPanel";
+import { DemoBanner } from "@/components/DemoBanner";
 import { MARKETS } from "@/lib/mockData";
 
 export default function MarketsPage() {
@@ -15,6 +16,8 @@ export default function MarketsPage() {
           settle on-chain.
         </p>
       </div>
+
+      <DemoBanner />
 
       <section>
         <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">Featured</h2>

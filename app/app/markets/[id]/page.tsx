@@ -11,6 +11,7 @@ import { OutcomeRow } from "@/components/OutcomeRow";
 import { BracketMini } from "@/components/BracketMini";
 import { SettlementFeedItem } from "@/components/SettlementFeedItem";
 import { LiveBadge, DataSource } from "@/components/LiveBadge";
+import { DemoBadge, DemoBanner } from "@/components/DemoBanner";
 import { ProofReceipt } from "@/components/ProofReceipt";
 import { TradeSheet, type TradeMode } from "@/components/TradeSheet";
 import { AreaChart } from "@/components/charts/AreaChart";
@@ -142,11 +143,13 @@ export default function MarketDetail() {
         <ArrowLeft className="h-4 w-4" /> Markets
       </Link>
 
+      <DemoBanner className="mt-4" />
+
       <div className="mt-4 flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="display text-4xl sm:text-5xl">{market.title}</h1>
-            {!resolved && <LiveBadge />}
+            {!resolved && (market.live ? <LiveBadge /> : <DemoBadge />)}
           </div>
           <p className="mt-1 text-muted">{market.subtitle}</p>
           <DataSource className="mt-2.5" />
