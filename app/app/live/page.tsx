@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useConnection } from "@solana/wallet-adapter-react";
 import { AnchorProvider, Idl } from "@coral-xyz/anchor";
 import { Keypair, PublicKey } from "@solana/web3.js";
-import { Radio, ExternalLink, AlertCircle } from "lucide-react";
+import { Radio, ExternalLink } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { StatTile } from "@/components/StatTile";
 import { StatusPill } from "@/components/StatusPill";
@@ -58,6 +59,7 @@ export default function LivePage() {
         if (!cancelled)
           setState({ kind: "ready", market, outcomes, pda: marketPda.toBase58() });
       } catch (e) {
+        console.error("live market read failed:", e);
         if (!cancelled) setState({ kind: "error", message: (e as Error)?.message ?? String(e) });
       }
     })();
@@ -79,33 +81,24 @@ export default function LivePage() {
       </div>
 
       <div className="mt-8">
-        {state.kind === "unconfigured" && (
-          <Card className="flex items-start gap-3 p-6 text-sm text-muted">
-            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-gold" />
-            <div>
-              <p className="text-text">No live market configured yet.</p>
-              <p className="mt-1">
-                On a machine with the Anchor toolchain: run <span className="tnum">pnpm create:market</span>,
-                copy the built IDL to <span className="tnum">app/public/idl/bracket_bond.json</span>, and set{" "}
-                <span className="tnum">NEXT_PUBLIC_MARKET_ID</span> — then this page reads that market live.
-                See <span className="tnum">docs/AGENT-HANDOFF.md</span>.
-              </p>
-            </div>
+        {(state.kind === "unconfigured" || state.kind === "error") && (
+          <Card className="flex flex-col items-center gap-3 p-10 text-center">
+            <span className="grid h-12 w-12 place-items-center rounded-2xl bg-panel-2 text-muted-2">
+              <Radio className="h-6 w-6" />
+            </span>
+            <p className="text-text">No live market is running right now.</p>
+            <p className="max-w-md text-sm text-muted">
+              When a market is live on-chain, its real state streams here straight from Solana.
+              In the meantime, explore the markets to see how it works.
+            </p>
+            <Link href="/markets" className="mt-1 text-sm font-medium text-accent hover:underline">
+              Browse markets →
+            </Link>
           </Card>
         )}
 
         {state.kind === "loading" && (
-          <Card className="p-6 text-sm text-muted">Reading market {MARKET_ID} from devnet…</Card>
-        )}
-
-        {state.kind === "error" && (
-          <Card className="flex items-start gap-3 p-6 text-sm">
-            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-danger" />
-            <div>
-              <p className="font-medium text-text">Couldn&apos;t read market {MARKET_ID}.</p>
-              <p className="mt-1 text-muted">{state.message}</p>
-            </div>
-          </Card>
+          <Card className="p-6 text-sm text-muted">Loading the live market from Solana…</Card>
         )}
 
         {state.kind === "ready" && (
