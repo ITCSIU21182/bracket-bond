@@ -107,8 +107,14 @@ export function PunditChat() {
               ))}
               {isLoading && (
                 <div className="flex justify-start">
-                  <div className="rounded-2xl border border-line bg-panel-2/50 px-3.5 py-2 text-sm text-muted">
-                    thinking…
+                  <div className="flex items-center gap-1 rounded-2xl border border-line bg-panel-2/50 px-3.5 py-3">
+                    {[0, 1, 2].map((i) => (
+                      <span
+                        key={i}
+                        className="h-1.5 w-1.5 animate-bounce rounded-full bg-muted"
+                        style={{ animationDelay: `${i * 0.15}s` }}
+                      />
+                    ))}
                   </div>
                 </div>
               )}
