@@ -6,7 +6,7 @@ import { Check, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "./ui/Button";
 import { cn } from "@/lib/cn";
-import { sol } from "@/lib/format";
+import { cents, sol } from "@/lib/format";
 import type { TeamOutcome } from "@/lib/types";
 
 export type TradeMode = "buy" | "exit";
@@ -72,7 +72,7 @@ export function TradeSheet({
       await fireConfetti();
       toast.success(
         mode === "buy" ? `Bought ${outcome.team}` : `Exited ${outcome.team}`,
-        { description: mode === "buy" ? `${shares.toFixed(3)} shares @ ${mark.toFixed(2)}` : `+${sol(payout)}` },
+        { description: mode === "buy" ? `${shares.toFixed(2)} shares @ ${cents(mark)}` : `+${sol(payout)}` },
       );
       setTimeout(onClose, 850);
     } catch (e) {
@@ -122,37 +122,53 @@ export function TradeSheet({
                   inputMode="decimal"
                   className="tnum h-12 w-full rounded-xl border border-line bg-panel-2 px-4 text-lg font-semibold outline-none focus:border-accent/60"
                 />
-                <button
-                  onClick={() =>
-                    setAmount(
-                      mode === "buy" ? (amt / 2 || 0.25).toFixed(2) : (positionShares / 2).toFixed(3),
-                    )
-                  }
-                  className="h-12 rounded-xl border border-line bg-panel-2 px-3 text-sm text-muted hover:text-text"
-                >
-                  ½
-                </button>
-                <button
-                  onClick={() => setAmount(mode === "buy" ? "1.00" : positionShares.toFixed(3))}
-                  className="h-12 rounded-xl border border-line bg-panel-2 px-3 text-sm text-muted hover:text-text"
-                >
-                  max
-                </button>
+                {mode === "exit" && (
+                  <>
+                    <button
+                      onClick={() => setAmount((positionShares / 2).toFixed(3))}
+                      className="h-12 rounded-xl border border-line bg-panel-2 px-3 text-sm text-muted hover:text-text"
+                    >
+                      ½
+                    </button>
+                    <button
+                      onClick={() => setAmount(positionShares.toFixed(3))}
+                      className="h-12 rounded-xl border border-line bg-panel-2 px-3 text-sm text-muted hover:text-text"
+                    >
+                      max
+                    </button>
+                  </>
+                )}
               </div>
+              {mode === "buy" && (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {[0.1, 0.5, 1, 5].map((inc) => (
+                    <button
+                      key={inc}
+                      onClick={() => setAmount((amt + inc).toFixed(2))}
+                      className="rounded-lg border border-line bg-panel-2 px-3 py-1.5 text-xs font-medium text-muted transition-colors hover:border-accent/50 hover:text-text"
+                    >
+                      +{inc}◎
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="mt-5 space-y-2.5 rounded-xl border border-line bg-panel-2/40 p-4 text-sm">
-              <Line label="Price (mark)" value={mark.toFixed(2)} />
               {mode === "buy" ? (
                 <>
-                  <Line label="You get" value={`${shares.toFixed(3)} shares`} />
+                  <Line label="Avg price" value={cents(mark)} />
+                  <Line label="Shares out" value={shares.toFixed(2)} />
+                  <Line label={`If ${outcome.team} advances`} value={`~${sol(shares)}`} accent />
+                  <Line label="Fee" value={`${(feeBps / 100).toFixed(0)}%`} />
                   <p className="pt-1 text-xs text-muted">
-                    No fee on buy. The {(feeBps / 100).toFixed(0)}% protocol fee is taken from the
-                    pot at settlement (from the winner&apos;s payout).
+                    No fee on buy - the {(feeBps / 100).toFixed(0)}% protocol fee is taken from the pot
+                    at settlement. Est. return is your pro-rata slice of the final pot.
                   </p>
                 </>
               ) : (
                 <>
+                  <Line label="Price (mark)" value={cents(mark)} />
                   <Line label="You receive" value={sol(payout, 3)} accent />
                   <p className="pt-1 text-xs text-muted">Payout is clamped to the pool - a late exit may receive less than mark.</p>
                 </>

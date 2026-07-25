@@ -14,6 +14,7 @@ const LINKS = [
   { href: "/activity", label: "Activity" },
   { href: "/judge", label: "Judge" },
   { href: "/live", label: "Live" },
+  { href: "/how-it-works", label: "How it works" },
 ];
 
 export function Nav() {
