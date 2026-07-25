@@ -7,6 +7,7 @@ import {
   ShieldCheck,
   Bot,
   Gavel,
+  Target,
 } from "lucide-react";
 import { MarketCard } from "@/components/MarketCard";
 import { Reveal } from "@/components/fx/Reveal";
@@ -24,6 +25,42 @@ const RUNNER = [
   "PERMISSIONLESS",
   "ON SOLANA",
   "NO HUMAN ORACLE",
+];
+
+const rgba = (hex: string, a: number) => {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
+};
+
+const FEATURES = [
+  {
+    icon: <ShieldCheck className="h-5 w-5" />,
+    t: "Proof-settled",
+    d: "Rounds resolve via a TxLINE Merkle proof verified on-chain - no human oracle, no dispute window.",
+    glow: "#37d67a",
+    tags: ["TxLINE", "Merkle", "CPI"],
+  },
+  {
+    icon: <Target className="h-5 w-5" />,
+    t: "Shootout-aware",
+    d: "Full-time goals exclude shootout goals, so we prove the penalty winner with the dedicated PE keys. Most markets mis-settle this as a draw.",
+    glow: "#f5c451",
+    tags: ["Keys 6001/6002", "Penalties"],
+  },
+  {
+    icon: <LogOut className="h-5 w-5" />,
+    t: "Exit anytime",
+    d: "Sell your position at the live mark before the tournament ends - a real, tradeable market, not a locked bet.",
+    glow: "#4785fc",
+    tags: ["Parimutuel", "Live mark"],
+  },
+  {
+    icon: <Bot className="h-5 w-5" />,
+    t: "Runs itself",
+    d: "Permissionless settlement plus an autonomous keeper: anyone, or the bot, can settle the instant a proof exists.",
+    glow: "#57b6b2",
+    tags: ["Keeper", "Permissionless"],
+  },
 ];
 
 export default function Landing() {
@@ -185,19 +222,41 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ─────────────────── FEATURES ─────────────────── */}
+      {/* ─────────────────── FEATURES (bento) ─────────────────── */}
       <section className="mx-auto max-w-6xl px-5 py-24">
-        <div className="grid gap-4 sm:grid-cols-3">
-          {[
-            { icon: <ShieldCheck className="h-5 w-5" />, t: "Proof-settled", d: "Rounds resolve via a TxLINE Merkle proof verified on-chain - no human oracle, no dispute window." },
-            { icon: <LogOut className="h-5 w-5" />, t: "Exit anytime", d: "Sell your position at the live mark before the tournament ends. A real, tradeable market." },
-            { icon: <Bot className="h-5 w-5" />, t: "Runs itself", d: "Permissionless settlement + an autonomous keeper: anyone or the bot can settle the instant a proof exists." },
-          ].map((f, i) => (
-            <Reveal key={f.t} delay={i * 0.08}>
-              <div className="h-full rounded-2xl border border-line bg-panel p-6">
-                <span className="grid h-10 w-10 place-items-center rounded-xl bg-brand/15 text-brand-2">{f.icon}</span>
-                <h3 className="mt-3 font-semibold">{f.t}</h3>
-                <p className="mt-1 text-sm text-muted">{f.d}</p>
+        <Reveal>
+          <div className="eyebrow mb-3 text-brand-2">Why it&apos;s different</div>
+          <h2 className="display text-4xl sm:text-5xl">Four things most markets get wrong</h2>
+        </Reveal>
+        <div className="mt-10 grid gap-4 sm:grid-cols-2">
+          {FEATURES.map((f, i) => (
+            <Reveal key={f.t} delay={i * 0.06}>
+              <div className="group relative h-full overflow-hidden rounded-2xl border border-line bg-panel p-6 transition-all duration-300 hover:-translate-y-0.5 hover:border-line-soft">
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full opacity-20 blur-3xl transition-opacity duration-300 group-hover:opacity-40"
+                  style={{ background: f.glow }}
+                />
+                <div className="relative">
+                  <span
+                    className="grid h-11 w-11 place-items-center rounded-xl"
+                    style={{ background: rgba(f.glow, 0.15), color: f.glow }}
+                  >
+                    {f.icon}
+                  </span>
+                  <h3 className="mt-4 text-lg font-semibold">{f.t}</h3>
+                  <p className="mt-1.5 text-sm text-muted">{f.d}</p>
+                  <div className="mt-4 flex flex-wrap gap-1.5">
+                    {f.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="rounded-md border border-line bg-panel-2/60 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-2"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
               </div>
             </Reveal>
           ))}

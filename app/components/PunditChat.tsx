@@ -133,12 +133,15 @@ export function PunditChat() {
               )}
             </div>
 
-            <form onSubmit={handleSubmit} className="flex items-center gap-2 border-t border-line p-3">
+            <form
+              onSubmit={handleSubmit}
+              className="flex items-center gap-2 rounded-b-2xl border-t border-white/10 bg-black/30 p-3 backdrop-blur-xl"
+            >
               <input
                 value={input}
                 onChange={handleInputChange}
                 placeholder="Ask the pundit…"
-                className="h-10 flex-1 rounded-xl border border-line bg-panel-2 px-3.5 text-sm outline-none focus:border-accent/60"
+                className="h-10 flex-1 rounded-xl border border-white/10 bg-black/30 px-3.5 text-sm outline-none backdrop-blur-xl transition-colors focus:border-white/25"
               />
               <button
                 type="submit"

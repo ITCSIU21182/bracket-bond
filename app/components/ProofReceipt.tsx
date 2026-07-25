@@ -1,8 +1,11 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ExternalLink, X } from "lucide-react";
+import { AlertCircle, CheckCircle2, ExternalLink, Loader2, ShieldCheck, X } from "lucide-react";
+import { Connection } from "@solana/web3.js";
 import { solscanTx, truncate } from "@/lib/format";
+import { cn } from "@/lib/cn";
 import type { SettlementEvent } from "@/lib/types";
 
 /** The emotional peak: a drawn-in check, the match, the proven predicate, the
@@ -102,6 +105,8 @@ export function ProofReceipt({
               </Row>
             </div>
 
+            {event.real && <VerifyButton sig={event.txSig} />}
+
             <p className="mt-6 border-t border-line pt-4 text-center text-xs text-muted">
               no human oracle · no dispute window
             </p>
@@ -109,6 +114,68 @@ export function ProofReceipt({
         </motion.div>
       )}
     </AnimatePresence>
+  );
+}
+
+type VState = "idle" | "verifying" | "verified" | "failed";
+
+/** Re-verify the settlement tx against devnet RPC, live. Four visual states. */
+function VerifyButton({ sig }: { sig: string }) {
+  const [state, setState] = useState<VState>("idle");
+
+  useEffect(() => setState("idle"), [sig]);
+
+  const verify = async () => {
+    if (state === "verifying" || state === "verified") return;
+    setState("verifying");
+    try {
+      const rpc = process.env.NEXT_PUBLIC_RPC_URL || "https://api.devnet.solana.com";
+      const conn = new Connection(rpc, "confirmed");
+      const res = await conn.getSignatureStatuses([sig], { searchTransactionHistory: true });
+      const info = res.value[0];
+      const ok =
+        !!info && !info.err && (info.confirmationStatus === "confirmed" || info.confirmationStatus === "finalized");
+      setState(ok ? "verified" : "failed");
+    } catch {
+      setState("failed");
+    }
+  };
+
+  const view = {
+    idle: {
+      icon: <ShieldCheck className="h-4 w-4" />,
+      label: "Verify on-chain",
+      cls: "border-accent/40 bg-accent/10 text-accent hover:border-accent/70",
+    },
+    verifying: {
+      icon: <Loader2 className="h-4 w-4 animate-spin" />,
+      label: "Verifying on devnet…",
+      cls: "border-line bg-panel-2 text-muted",
+    },
+    verified: {
+      icon: <CheckCircle2 className="h-4 w-4" />,
+      label: "Verified on-chain",
+      cls: "border-accent/60 bg-accent/15 text-accent",
+    },
+    failed: {
+      icon: <AlertCircle className="h-4 w-4" />,
+      label: "Couldn't confirm - retry or open Solscan",
+      cls: "border-gold/50 bg-gold/10 text-gold hover:border-gold/70",
+    },
+  }[state];
+
+  return (
+    <button
+      onClick={verify}
+      disabled={state === "verifying" || state === "verified"}
+      className={cn(
+        "mt-5 flex w-full items-center justify-center gap-2 rounded-xl border py-2.5 text-sm font-medium transition-all enabled:active:scale-[0.98] disabled:cursor-default",
+        view.cls,
+      )}
+    >
+      {view.icon}
+      {view.label}
+    </button>
   );
 }
 
