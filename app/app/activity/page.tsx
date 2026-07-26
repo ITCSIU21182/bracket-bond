@@ -65,9 +65,10 @@ export default function ActivityPage() {
       {matches && matches.length > 0 && (
         <section>
           <div className="mb-5">
-            <h2 className="display text-3xl">2026 knockout results</h2>
+            <h2 className="display text-3xl">FIFA World Cup 2026 knockout</h2>
             <p className="mt-1 text-sm text-muted">
-              Real match results - the actual data a proof would settle. Settlement stays on TxLINE.
+              Real knockout results via the FIFA API, shown for reference. On Bracket Bond the
+              settlement itself is proven on TxLINE, not read from here.
             </p>
           </div>
           <FifaResults matches={matches} winner={winner} />
