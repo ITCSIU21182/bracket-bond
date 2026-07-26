@@ -1,98 +1,182 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import Link from "next/link";
-import { useConnection } from "@solana/wallet-adapter-react";
-import { AnchorProvider, Idl } from "@coral-xyz/anchor";
-import { Keypair, PublicKey } from "@solana/web3.js";
-import { Radio, ExternalLink } from "lucide-react";
+import {
+  Radio,
+  ExternalLink,
+  Droplets,
+  Wallet,
+  ShoppingCart,
+  RefreshCw,
+  ArrowRight,
+} from "lucide-react";
+import { toast } from "sonner";
 import { Card } from "@/components/ui/Card";
 import { StatTile } from "@/components/StatTile";
 import { StatusPill } from "@/components/StatusPill";
 import { MarkTicker } from "@/components/MarkTicker";
 import { ProbBar } from "@/components/ProbBar";
 import { LiveBadge } from "@/components/LiveBadge";
-import { BracketBondClient, MarketView, OutcomeView } from "@/lib/bracketBond";
+import { Button } from "@/components/ui/Button";
+import { WalletButton } from "@/components/WalletButton";
+import { TradeSheet } from "@/components/TradeSheet";
+import { useBracketBond } from "@/lib/useBracketBond";
 import { team } from "@/lib/teams";
-import { cents, lamportsToSol } from "@/lib/format";
+import { cents, lamportsToSol, solscanTx, truncate } from "@/lib/format";
+import type { OutcomeView } from "@/lib/bracketBond";
+import type { TeamOutcome } from "@/lib/types";
 
 const PROGRAM_ID = process.env.NEXT_PUBLIC_PROGRAM_ID ?? "EbYmsXdALmF4GHY5JQT2Rv5fqC2Nws2qFcnh4B1QXE3U";
-// Default to the deployed devnet market (777) so /live reads real on-chain state
-// even when the platform doesn't pass NEXT_PUBLIC_* into the build. `||` (not `??`)
-// so an empty build-arg still falls back.
 const MARKET_ID = process.env.NEXT_PUBLIC_MARKET_ID || "777";
-
-type State =
-  | { kind: "unconfigured" }
-  | { kind: "loading" }
-  | { kind: "error"; message: string }
-  | { kind: "ready"; market: MarketView; outcomes: OutcomeView[]; pda: string };
+const FAUCET = "https://faucet.solana.com/";
 
 export default function LivePage() {
-  const { connection } = useConnection();
-  const [state, setState] = useState<State>(
-    MARKET_ID ? { kind: "loading" } : { kind: "unconfigured" },
+  const bb = useBracketBond(Number(MARKET_ID));
+  const [sheet, setSheet] = useState<{ open: boolean; outcome: OutcomeView | null }>({
+    open: false,
+    outcome: null,
+  });
+
+  const asTeamOutcome = (o: OutcomeView): TeamOutcome => {
+    const t = team(o.teamId);
+    return {
+      index: o.index,
+      team: t.name,
+      flag: t.flag,
+      mark: o.mark,
+      status: o.status,
+      sharesOutstanding: Number(o.sharesOutstanding),
+    };
+  };
+
+  const confirmBuy = useCallback(
+    async (amt: number) => {
+      if (!sheet.outcome) return;
+      return await bb.buy(sheet.outcome.index, Math.floor(amt * 1e9));
+    },
+    [bb, sheet.outcome],
   );
 
-  useEffect(() => {
-    if (!MARKET_ID) return;
-    let cancelled = false;
-    (async () => {
+  const runTx = useCallback(
+    async (verb: string, name: string, fn: () => Promise<string>) => {
+      const id = toast.loading(`${verb} ${name}…`);
       try {
-        const res = await fetch("/idl/bracket_bond.json");
-        if (!res.ok) throw new Error("IDL not found at /idl/bracket_bond.json — the build machine must copy it there.");
-        const idl = (await res.json()) as Idl;
-        const wallet = {
-          publicKey: Keypair.generate().publicKey,
-          signTransaction: async (t: any) => t,
-          signAllTransactions: async (t: any) => t,
-        };
-        const provider = new AnchorProvider(connection, wallet as any, { commitment: "confirmed" });
-        const client = BracketBondClient.fromIdl(idl, new PublicKey(PROGRAM_ID), provider);
-        const marketPda = client.market(Number(MARKET_ID));
-        const market = await client.getMarket(marketPda);
-        const outcomes: OutcomeView[] = [];
-        for (let i = 0; i < 12; i++) {
-          try {
-            outcomes.push(await client.getOutcome(marketPda, i));
-          } catch {
-            break;
-          }
-        }
-        if (!cancelled)
-          setState({ kind: "ready", market, outcomes, pda: marketPda.toBase58() });
+        const sig = await fn();
+        toast.success(`${verb === "Exiting" ? "Exited" : "Redeemed"} ${name}`, {
+          id,
+          description: "Confirmed on devnet",
+          action: { label: "Solscan", onClick: () => window.open(solscanTx(sig), "_blank") },
+        });
       } catch (e) {
-        console.error("live market read failed:", e);
-        if (!cancelled) setState({ kind: "error", message: (e as Error)?.message ?? String(e) });
+        toast.error(`${verb} failed`, { id, description: String((e as Error)?.message ?? e).slice(0, 110) });
       }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [connection]);
+    },
+    [],
+  );
+
+  const resolved = bb.market?.status === "resolved";
+  const balanceSol = bb.balance === null ? null : bb.balance / 1e9;
+  const lowBalance = bb.connected && balanceSol !== null && balanceSol < 0.02;
 
   return (
     <div className="mx-auto max-w-4xl px-5 pb-20 pt-10">
+      {/* Header */}
       <div className="flex flex-wrap items-center gap-3">
         <span className="grid h-11 w-11 place-items-center rounded-2xl bg-accent/10 text-accent ring-1 ring-accent/25">
           <Radio className="h-5 w-5" />
         </span>
-        <div>
-          <h1 className="display text-4xl">Live on-chain</h1>
-          <p className="text-muted">Read straight from the Bracket Bond program on Solana devnet — no mock data.</p>
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h1 className="display text-4xl">Live on-chain market</h1>
+            <span className="rounded-full border border-accent/40 bg-accent/10 px-2.5 py-1 text-xs font-medium text-accent">
+              Real · Solana devnet
+            </span>
+          </div>
+          <p className="mt-1 text-muted">
+            This is the real market - every buy and exit is a signed transaction on Solana. The{" "}
+            <Link href="/markets" className="text-brand-2 hover:underline">
+              Markets
+            </Link>{" "}
+            tab is a labelled demo.
+          </p>
         </div>
       </div>
 
-      <div className="mt-8">
-        {(state.kind === "unconfigured" || state.kind === "error") && (
+      {/* Wallet / how-to bar */}
+      <div className="mt-6">
+        {bb.connected ? (
+          <Card className="flex flex-wrap items-center justify-between gap-3 p-4">
+            <div className="flex items-center gap-3">
+              <span className="grid h-9 w-9 place-items-center rounded-xl bg-panel-2 text-accent">
+                <Wallet className="h-4 w-4" />
+              </span>
+              <div className="leading-tight">
+                <div className="tnum text-sm font-medium">
+                  {bb.walletPubkey ? truncate(bb.walletPubkey.toBase58(), 4, 4) : ""}
+                </div>
+                <div className="tnum text-xs text-muted">
+                  {balanceSol === null ? "-" : `${balanceSol.toFixed(3)} ◎ on devnet`}
+                </div>
+              </div>
+            </div>
+            <a
+              href={FAUCET}
+              target="_blank"
+              rel="noreferrer"
+              className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+                lowBalance
+                  ? "border-gold/50 bg-gold/10 text-gold hover:border-gold/70"
+                  : "border-line bg-panel-2 text-muted hover:text-text"
+              }`}
+            >
+              <Droplets className="h-3.5 w-3.5" />
+              {lowBalance ? "Low balance - get devnet SOL" : "Devnet faucet"}
+            </a>
+          </Card>
+        ) : (
+          <Card className="p-5">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <div className="font-semibold">Connect a wallet to trade</div>
+                <p className="mt-0.5 text-sm text-muted">Phantom or Coin98, set to Solana devnet.</p>
+              </div>
+              <WalletButton />
+            </div>
+            <div className="mt-4 flex flex-col gap-2 border-t border-line pt-4 text-sm text-muted sm:flex-row sm:items-center sm:gap-4">
+              <Step n="1" icon={<Wallet className="h-3.5 w-3.5" />} label="Connect (devnet)" />
+              <ArrowRight className="hidden h-3.5 w-3.5 text-muted-2 sm:block" />
+              <Step
+                n="2"
+                icon={<Droplets className="h-3.5 w-3.5" />}
+                label={
+                  <a href={FAUCET} target="_blank" rel="noreferrer" className="text-brand-2 hover:underline">
+                    Get free devnet SOL
+                  </a>
+                }
+              />
+              <ArrowRight className="hidden h-3.5 w-3.5 text-muted-2 sm:block" />
+              <Step n="3" icon={<ShoppingCart className="h-3.5 w-3.5" />} label="Buy a team" />
+            </div>
+          </Card>
+        )}
+      </div>
+
+      {/* Market */}
+      <div className="mt-6">
+        {!bb.market && !bb.error && (
+          <Card className="p-6 text-sm text-muted">Loading the live market from Solana…</Card>
+        )}
+
+        {!bb.market && bb.error && (
           <Card className="flex flex-col items-center gap-3 p-10 text-center">
             <span className="grid h-12 w-12 place-items-center rounded-2xl bg-panel-2 text-muted-2">
               <Radio className="h-6 w-6" />
             </span>
             <p className="text-text">No live market is running right now.</p>
             <p className="max-w-md text-sm text-muted">
-              When a market is live on-chain, its real state streams here straight from Solana.
-              In the meantime, explore the markets to see how it works.
+              When a market is live on-chain, its real state streams here straight from Solana. In the
+              meantime, explore the markets to see how it works.
             </p>
             <Link href="/markets" className="mt-1 text-sm font-medium text-accent hover:underline">
               Browse markets →
@@ -100,71 +184,151 @@ export default function LivePage() {
           </Card>
         )}
 
-        {state.kind === "loading" && (
-          <Card className="p-6 text-sm text-muted">Loading the live market from Solana…</Card>
-        )}
-
-        {state.kind === "ready" && (
+        {bb.market && (
           <div className="space-y-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <h2 className="display text-3xl">{state.market.title}</h2>
-                {state.market.status === "open" ? <LiveBadge label="On-chain" /> : (
-                  <span className="rounded-full border border-gold/40 bg-gold/5 px-2.5 py-1 text-xs text-gold">resolved</span>
+                <h2 className="display text-3xl">{bb.market.title}</h2>
+                {resolved ? (
+                  <span className="rounded-full border border-gold/40 bg-gold/5 px-2.5 py-1 text-xs text-gold">
+                    resolved
+                  </span>
+                ) : (
+                  <LiveBadge label="On-chain" />
                 )}
               </div>
-              <a
-                href={`https://solscan.io/account/${state.pda}?cluster=devnet`}
-                target="_blank"
-                rel="noreferrer"
-                className="tnum inline-flex items-center gap-1.5 rounded-lg border border-line bg-panel-2 px-3 py-1.5 text-sm text-accent hover:border-accent/50"
-              >
-                market on Solscan <ExternalLink className="h-3.5 w-3.5" />
-              </a>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => bb.refresh()}
+                  className="grid h-8 w-8 place-items-center rounded-lg border border-line bg-panel-2 text-muted transition-colors hover:text-text"
+                  aria-label="Refresh"
+                  title="Refresh from chain"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                </button>
+                {bb.marketPda && (
+                  <a
+                    href={`https://solscan.io/account/${bb.marketPda.toBase58()}?cluster=devnet`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="tnum inline-flex items-center gap-1.5 rounded-lg border border-line bg-panel-2 px-3 py-1.5 text-sm text-accent hover:border-accent/50"
+                  >
+                    market on Solscan <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
+                )}
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <StatTile label="Pool" value={lamportsToSol(state.market.totalCollateral, 3)} />
-              <StatTile label="Round" value={state.market.round} />
-              <StatTile label="Alive" value={state.market.aliveCount} accent="accent" />
+              <StatTile label="Pool" value={lamportsToSol(bb.market.totalCollateral, 3)} />
+              <StatTile label="Round" value={bb.market.round} />
+              <StatTile label="Alive" value={bb.market.aliveCount} accent="accent" />
               <StatTile
                 label="Winner"
-                value={state.market.winnerIndex === null ? "-" : `#${state.market.winnerIndex}`}
-                accent={state.market.winnerIndex === null ? "muted" : "gold"}
+                value={bb.market.winnerIndex === null ? "-" : `#${bb.market.winnerIndex}`}
+                accent={bb.market.winnerIndex === null ? "muted" : "gold"}
               />
             </div>
 
             <div className="space-y-2.5">
-              {state.outcomes.map((o) => {
+              {bb.outcomes.map((o) => {
                 const t = team(o.teamId);
                 const eliminated = o.status === "eliminated";
+                const won = o.status === "won";
+                const held = (bb.positions[o.index] ?? 0n) > 0n;
                 return (
                   <div
                     key={o.index}
-                    className={`flex items-center gap-4 rounded-xl border px-4 py-3.5 ${
-                      eliminated ? "border-line/60 bg-panel-2/30 opacity-55" : "border-line bg-panel-2/40"
+                    className={`flex items-center gap-4 rounded-xl border px-4 py-3.5 transition-colors ${
+                      won
+                        ? "border-gold/40 bg-gold/[0.04]"
+                        : eliminated
+                          ? "border-line/60 bg-panel-2/30 opacity-55"
+                          : "border-line bg-panel-2/40"
                     }`}
                   >
-                    <span className="text-2xl">{t.flag}</span>
+                    <span className="text-2xl" aria-hidden>
+                      {t.flag}
+                    </span>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <span className={`font-semibold ${eliminated ? "line-through" : ""}`}>{t.name}</span>
                         <StatusPill status={o.status} />
+                        {held && (
+                          <span className="rounded-md border border-accent/30 bg-accent/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-accent">
+                            held
+                          </span>
+                        )}
                       </div>
                       <ProbBar value={o.mark} status={o.status} className="mt-2 max-w-[240px]" />
                     </div>
-                    <MarkTicker value={o.mark} size="lg" className={eliminated ? "text-muted" : ""} />
+
+                    <div className="hidden w-16 flex-col items-end sm:flex">
+                      <MarkTicker value={o.mark} size="lg" className={eliminated ? "text-muted" : ""} />
+                    </div>
+
+                    <div className="flex w-[132px] shrink-0 justify-end gap-2">
+                      {resolved ? (
+                        won && held ? (
+                          <Button size="sm" variant="success" onClick={() => runTx("Redeeming", t.name, () => bb.redeem(o.index))}>
+                            Redeem
+                          </Button>
+                        ) : won ? (
+                          <span className="text-xs text-gold">winner</span>
+                        ) : (
+                          <span className="text-xs text-muted">-</span>
+                        )
+                      ) : eliminated ? (
+                        <span className="text-xs text-muted">out</span>
+                      ) : (
+                        <>
+                          <Button size="sm" variant="success" onClick={() => setSheet({ open: true, outcome: o })}>
+                            Buy
+                          </Button>
+                          {held && (
+                            <Button size="sm" variant="secondary" onClick={() => runTx("Exiting", t.name, () => bb.sellAll(o.index))}>
+                              Exit
+                            </Button>
+                          )}
+                        </>
+                      )}
+                    </div>
                   </div>
                 );
               })}
             </div>
 
             <p className="text-center text-xs text-muted-2">
-              Live read via getProgramAccounts on {PROGRAM_ID.slice(0, 6)}…{PROGRAM_ID.slice(-4)} · Solana devnet
+              Real market on {PROGRAM_ID.slice(0, 6)}…{PROGRAM_ID.slice(-4)} · Solana devnet · play money.
+              Winning shares redeem from the pot after the round settles by proof.
             </p>
           </div>
         )}
       </div>
+
+      <TradeSheet
+        open={sheet.open}
+        mode="buy"
+        outcome={sheet.outcome ? asTeamOutcome(sheet.outcome) : null}
+        feeBps={200}
+        connected={bb.connected}
+        onClose={() => setSheet({ open: false, outcome: null })}
+        onConfirm={confirmBuy}
+      />
     </div>
+  );
+}
+
+function Step({ n, icon, label }: { n: string; icon: React.ReactNode; label: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-2">
+      <span className="grid h-6 w-6 place-items-center rounded-full bg-panel-2 text-[11px] font-semibold text-muted-2">
+        {n}
+      </span>
+      <span className="inline-flex items-center gap-1.5 text-text">
+        {icon}
+        {label}
+      </span>
+    </span>
   );
 }

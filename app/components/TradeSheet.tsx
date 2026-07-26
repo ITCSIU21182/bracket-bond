@@ -6,7 +6,7 @@ import { Check, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "./ui/Button";
 import { cn } from "@/lib/cn";
-import { cents, sol } from "@/lib/format";
+import { cents, sol, solscanTx } from "@/lib/format";
 import type { TeamOutcome } from "@/lib/types";
 
 export type TradeMode = "buy" | "exit";
@@ -67,13 +67,20 @@ export function TradeSheet({
     if (status === "submitting") return;
     setStatus("submitting");
     try {
-      await onConfirm(amt);
+      const sig = await onConfirm(amt);
       setStatus("success");
       await fireConfetti();
-      toast.success(
-        mode === "buy" ? `Bought ${outcome.team}` : `Exited ${outcome.team}`,
-        { description: mode === "buy" ? `${shares.toFixed(2)} shares @ ${cents(mark)}` : `+${sol(payout)}` },
-      );
+      toast.success(mode === "buy" ? `Bought ${outcome.team}` : `Exited ${outcome.team}`, {
+        description: sig
+          ? "Confirmed on devnet"
+          : mode === "buy"
+            ? `${shares.toFixed(2)} shares @ ${cents(mark)}`
+            : `+${sol(payout)}`,
+        action:
+          typeof sig === "string"
+            ? { label: "Solscan", onClick: () => window.open(solscanTx(sig), "_blank") }
+            : undefined,
+      });
       setTimeout(onClose, 850);
     } catch (e) {
       setStatus("error");
