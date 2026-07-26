@@ -4,17 +4,18 @@
 
 # Bracket Bond
 
-**Hold a World Cup position that settles itself — by proof, not by vote.**
+**Hold a World Cup position that settles itself - by proof, not by vote.**
 
 A tradeable, tournament-long prediction market on **Solana**, where every knockout
 round resolves on a **cryptographic proof of the real match data** (TxLINE /
-TxODDS) — including penalty shootouts. No human oracle, no dispute window.
+TxODDS) - including penalty shootouts. No human oracle, no dispute window.
 
-Built for the **TxODDS × Superteam World Cup Hackathon** — *Prediction Markets &
+Built for the **TxODDS × Superteam World Cup Hackathon** - *Prediction Markets &
 Settlement*.
 
 **[▶ Live app](https://bracket-bond-production.up.railway.app/)** ·
-**[Live on-chain view](https://bracket-bond-production.up.railway.app/live)**
+**[Live on-chain view](https://bracket-bond-production.up.railway.app/live)** ·
+**[How it works](https://bracket-bond-production.up.railway.app/how-it-works)**
 
 [Settlement](docs-site/content/docs/settlement.mdx) ·
 [Testing](docs/TESTING.md) ·
@@ -27,11 +28,11 @@ Settlement*.
 
 ## The idea
 
-A World Cup result is a fact, not an opinion — Brazil either advanced or they
+A World Cup result is a fact, not an opinion - Brazil either advanced or they
 didn't. So Bracket Bond settles it by **proving the fact**, not by asking anyone to
 agree. Each knockout round resolves on a **TxLINE Merkle proof of the real match
 data**, verified on-chain through a CPI into TxODDS's `Txoracle` program. The
-elimination applies **only if the proof verifies** — objective, automatic, and final
+elimination applies **only if the proof verifies** - objective, automatic, and final
 the moment the match ends.
 
 That's what makes it a natural home for the TxODDS ecosystem: it turns TxLINE's
@@ -39,44 +40,49 @@ verifiable data into the **settlement layer** of a real, tradeable market on Sol
 
 ### What makes it special
 
-- **Settled by proof, not by vote** — objective, automatic, no dispute window.
-- **Shootout-correct** — it proves the penalty-shootout winner (PE keys 6001/6002),
+- **Settled by proof, not by vote** - objective, automatic, no dispute window.
+- **Shootout-correct** - it proves the penalty-shootout winner (PE keys 6001/6002),
   the hardest case in knockout football to settle right.
-- **A real market** — buy at the live mark and **exit any time**; a solvency
+- **A real market** - buy at the live mark and **exit any time**; a solvency
   invariant means the vault can never underpay.
-- **Permissionless yet safe** — anyone (or the keeper) can settle, but the program
+- **Permissionless yet safe** - anyone (or the keeper) can settle, but the program
   rebuilds the winning condition on-chain, so only the team that actually **lost**
   can be eliminated. Aim it at the winner and the transaction reverts.
-- **Runs itself** — an autonomous keeper settles the instant a proof exists.
+- **Runs itself** - an autonomous keeper settles the instant a proof exists.
 
 ## ✅ Verified on-chain (devnet)
 
 Backend + on-chain behavior was verified end-to-end on devnet:
 
-- **Permissionless settle** from a non-authority wallet —
+- **Permissionless settle** from a non-authority wallet -
   [`settle_round` tx `2emcrff…`](https://solscan.io/tx/2emcrffBsuuX3t2M7EH6Au2Uzkvr2j29yMx5twmPjVn8YaQAcnWbU5ZvRyEf5nJurb81N4GVVCq69oLZvWimeZCa?cluster=devnet)
   (settler ≠ config authority).
-- **Can't eliminate the winner** — pointing settlement at the winning team **reverts
+- **Can't eliminate the winner** - pointing settlement at the winning team **reverts
   `ProofFailed`** (the program rebuilds the predicate on-chain and doesn't trust the
   caller's strategy).
-- **Compute budget** — the on-chain parse + predicate-rebuild + the ~1.4M-CU proof
+- **Compute budget** - the on-chain parse + predicate-rebuild + the ~1.4M-CU proof
   CPI fit in **195,734 / 1,400,000 CU**.
-- **First proof settle** (Norway v England, fixture 18213979) —
+- **First proof settle** (Norway v England, fixture 18213979) -
   [`tx 65jgF1VB…`](https://solscan.io/tx/65jgF1VB5X6PNg75dQvtzhHqU438s8n5TDG3QTSqevR4cUr75eEfqK9NWefYQETxVeYTqgJxzL3vcinuf2XmZLGw?cluster=devnet).
 
 Program id (devnet): `EbYmsXdALmF4GHY5JQT2Rv5fqC2Nws2qFcnh4B1QXE3U`.
 
-## Try it — what's real vs. illustrative
+## Try it - what's real vs. illustrative
 
 **Live app:** https://bracket-bond-production.up.railway.app/
 
 - **`/live`** reads a real market **straight from Solana devnet** (program above,
-  market `777`) — real outcomes, marks, and pool, no mock data.
-- **Settlement by proof** — the differentiator — is real and verified on-chain
-  (the tx links above).
-- The flagship market UI (Markets, Portfolio, Activity, Judge) runs on **clearly
-  labelled demo data**: a live "Race to the Final" needs the tournament to be
-  actively running (real-time TxLINE odds/scores), so those marks are simulated.
+  market `777`) - real outcomes, marks, and pool, no mock data.
+- **Settlement by proof** - the differentiator - is real and verified on-chain
+  (the tx links above). Open any receipt on **`/activity`** and hit **Verify
+  on-chain** to re-check the tx against devnet RPC live.
+- **Real World Cup 2026 data** - team names, flags, and the actual knockout results
+  (shootouts and the champion included) come live from the public FIFA API and show
+  on **Activity** and the flagship market. It's display only: FIFA has no odds, so
+  the tradeable marks stay simulated and settlement stays on TxLINE.
+- Beyond that, the tradeable flagship market runs on **clearly labelled demo data** -
+  a live "Race to the Final" needs the tournament actively running (real-time TxLINE
+  odds/scores), so the marks and volumes are simulated.
 
 ## How settlement works
 
@@ -94,7 +100,7 @@ Program id (devnet): `EbYmsXdALmF4GHY5JQT2Rv5fqC2Nws2qFcnh4B1QXE3U`.
 
 **Shootout correctness:** full-game goal stats exclude shootout goals, so a knockout
 level at full time went to penalties. Bracket Bond then proves the shootout winner
-with the PE keys `6001`/`6002` — the hardest case in knockout football to get right.
+with the PE keys `6001`/`6002` - the hardest case in knockout football to get right.
 
 ## Architecture
 
@@ -122,19 +128,21 @@ Frontend (app/)   Next.js + Tailwind + framer-motion; markets, trade sheet,
 - **Proof-enforced, permissionless settlement** with on-chain predicate + stat-key
   binding.
 - **Shootout-aware** advancement (regulation / ET / penalties).
-- **Autonomous keeper** — settles the instant a proof exists (deterministic; no LLM
+- **Autonomous keeper** - settles the instant a proof exists (deterministic; no LLM
   in the settlement path).
-- **AI-pundit** chat grounded on TxLINE data + settlement (OpenAI, server-side key).
-- **Judge Mode** — inspect any settled round: proof → CPI → elimination → bracket.
-- Professional dark UI with live marks, proof-reveal animations, and mark-history +
-  usage charts.
+- **AI-pundit** chat grounded on TxLINE data + settlement (OpenAI, server-side key),
+  with an offline fallback so it still answers even when no key is configured.
+- **Judge Mode** - inspect any settled round: proof → CPI → elimination → bracket.
+- Professional dark UI: live marks, proof receipts with a live on-chain **Verify**
+  button, a **How it works** explainer, real FIFA World Cup results, and
+  mark-history + usage charts.
 
 ## Quickstart
 
 **Backend / on-chain** (Rust, Agave/Solana ≥ 4.0.2, Anchor 0.31, Node 20+, pnpm):
 
 ```bash
-git clone https://github.com/yukitran03/bracket-bond && cd bracket-bond
+git clone https://github.com/ITCSIU21182/bracket-bond && cd bracket-bond
 pnpm install
 cp .env.example .env            # ANCHOR_WALLET, cluster, KEEPER_MARKET_IDS
 anchor build                    # regenerates target/idl/bracket_bond.json
@@ -144,7 +152,7 @@ pnpm settle:proof               # full on-chain PROOF settle on a real WC fixtur
 pnpm keeper                     # autonomous keeper
 ```
 
-**Frontend** (runs on mock data — no wallet/chain needed to explore):
+**Frontend** (runs on mock data - no wallet/chain needed to explore):
 
 ```bash
 pnpm -C app install
@@ -169,19 +177,19 @@ Full verification steps: **[`docs/TESTING.md`](docs/TESTING.md)**.
 
 ## Security & compliance
 
-- Play-money / **devnet only**. Bracket Bond escrows **native SOL** — the TxL token
+- Play-money / **devnet only**. Bracket Bond escrows **native SOL** - the TxL token
   is never staked (hackathon rule).
 - Settlement data comes from **TxLINE only** (see `AGENTS.md`).
 - Secrets (TxLINE tokens, `OPENAI_API_KEY`) stay **server-side** in gitignored
-  `.env` files — never in the client bundle.
+  `.env` files - never in the client bundle.
 
 ## Where this goes
 
 Bracket Bond starts with the World Cup, but the primitive generalizes: **any
-objective, TxLINE-provable outcome can become a market that settles itself** —
+objective, TxLINE-provable outcome can become a market that settles itself** -
 goals, cards, corners, shootouts, whole tournaments. The long-term goal is to make
 proof-settlement a reusable building block for the TxODDS + Solana ecosystem, so
-markets can price in real time, trade like real markets, and resolve on the truth —
+markets can price in real time, trade like real markets, and resolve on the truth -
 automatically, the moment the world produces it.
 
 ## License
